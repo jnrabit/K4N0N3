@@ -27,7 +27,7 @@ from bench.harness import RESULTS_DIR, _git_commit  # noqa: E402
 
 def main() -> None:
     from k4n0n3 import ZeroFlushModel
-    from k4n0n3.hooks import _packed_tensor, dequantize_int4, dequantize_int8
+    from k4n0n3.hooks import _packed_tensor, dequantize_groupwise_int4, dequantize_int8
 
     p = argparse.ArgumentParser()
     p.add_argument("--model", default="Qwen/Qwen2.5-3B")
@@ -58,8 +58,7 @@ def main() -> None:
             t1 = time.perf_counter()
             for e, q_gpu, s_gpu in staged:
                 if "q4" in e:
-                    dequantize_int4(q_gpu, s_gpu, e.get("meta")) if "meta" in e \
-                        else dequantize_int4(q_gpu, s_gpu)
+                    dequantize_groupwise_int4(q_gpu, s_gpu, e["meta"])
                 else:
                     dequantize_int8(q_gpu, s_gpu)
             torch.cuda.synchronize()

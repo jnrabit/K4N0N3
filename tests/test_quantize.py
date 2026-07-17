@@ -4,9 +4,9 @@ import torch
 
 from k4n0n3.hooks import (
     LayerManager,
-    dequantize_int4,
+    dequantize_groupwise_int4,
     dequantize_int8,
-    quantize_per_channel_int4,
+    quantize_groupwise_int4,
     quantize_per_channel_int8,
 )
 
@@ -71,32 +71,56 @@ def test_quantize_range_full():
     assert (q.abs().amax(dim=1) == 127).all()
 
 
-# -- M5: int4-gepackt --------------------------------------------------------
+# -- P: int4 group-wise gepackt ----------------------------------------------
 
 
 def test_int4_pack_shapes():
-    w = torch.randn(16, 32, dtype=torch.float16)
-    packed, scale = quantize_per_channel_int4(w)
-    assert packed.dtype == torch.uint8 and packed.shape == (16, 16)
-    assert scale.dtype == torch.float16 and scale.shape == (16,)
+    w = torch.randn(16, 64, dtype=torch.float16)
+    packed, scale, meta = quantize_groupwise_int4(w, group_size=32)
+    assert packed.dtype == torch.uint8 and packed.shape == (16, 32)
+    assert scale.dtype == torch.float16 and scale.shape == (16, 2)
+    assert meta == {"group_size": 32, "orig_shape": (16, 64)}
 
 
 def test_int4_roundtrip_error_bounded():
     torch.manual_seed(3)
-    w = torch.randn(64, 128, dtype=torch.float16)
-    packed, scale = quantize_per_channel_int4(w)
-    deq = dequantize_int4(packed, scale)
+    w = torch.randn(64, 256, dtype=torch.float16)
+    packed, scale, meta = quantize_groupwise_int4(w, group_size=128)
+    deq = dequantize_groupwise_int4(packed, scale, meta)
     assert deq.shape == w.shape and deq.dtype == torch.float16
-    # Rundung <= scale/2 plus fp16-Terme; scale = max/7, also grob
-    bound = scale.float().unsqueeze(1) * 0.65 + 1e-6
+    # Rundung <= scale/2 plus fp16-Terme, pro Gruppe expandiert
+    bound = scale.float().repeat_interleave(128, dim=1) * 0.65 + 1e-6
+    assert ((w.float() - deq.float()).abs() <= bound).all()
+
+
+def test_int4_last_group_shorter():
+    torch.manual_seed(5)
+    w = torch.randn(8, 96, dtype=torch.float16)  # 96 = 64 + Restgruppe 32
+    packed, scale, meta = quantize_groupwise_int4(w, group_size=64)
+    assert scale.shape == (8, 2)
+    deq = dequantize_groupwise_int4(packed, scale, meta)
+    assert deq.shape == w.shape
+    reps = torch.tensor([64, 32])
+    bound = scale.float().repeat_interleave(reps, dim=1) * 0.65 + 1e-6
     assert ((w.float() - deq.float()).abs() <= bound).all()
 
 
 def test_int4_negative_values_roundtrip():
     w = torch.tensor([[-7.0, 7.0, -1.0, 0.0]], dtype=torch.float16)
-    packed, scale = quantize_per_channel_int4(w)
-    deq = dequantize_int4(packed, scale)
+    packed, scale, meta = quantize_groupwise_int4(w, group_size=4)
+    deq = dequantize_groupwise_int4(packed, scale, meta)
     assert torch.allclose(deq.float(), w.float(), atol=0.51)
+
+
+def test_int4_groupwise_beats_per_channel_on_outliers():
+    # Ein Ausreisser am Kanalende darf die Quantisierung der ersten Gruppe
+    # nicht mehr verzerren — der Kern des group-wise-Arguments.
+    w = torch.randn(4, 256, dtype=torch.float16) * 0.1
+    w[:, -1] = 50.0
+    packed, scale, meta = quantize_groupwise_int4(w, group_size=128)
+    deq = dequantize_groupwise_int4(packed, scale, meta)
+    err_first_group = (w[:, :128].float() - deq[:, :128].float()).abs().mean()
+    assert err_first_group < 0.01
 
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="No CUDA available")

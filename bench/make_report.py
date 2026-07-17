@@ -23,7 +23,8 @@ def row_label(cfg: dict) -> str | None:
     if cfg.get("model") != MAIN_MODEL:
         return None
     if cfg.get("quantize_transfer") == "int4":
-        return "int4-custom (gepackt)"
+        g = cfg.get("int4_group_size")
+        return f"int4-g{g} (group-wise)" if g else "int4-per-channel (M5, deprecated)"
     if cfg.get("quantize_transfer"):
         return "int8-custom"
     if cfg.get("pin_ram_fraction", 0) == 0.0:

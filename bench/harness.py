@@ -198,6 +198,8 @@ def run(config: dict) -> dict:
     )
     if config.get("quantize_transfer"):
         zfm_kwargs["quantize_transfer"] = config["quantize_transfer"]
+        if config.get("int4_group_size"):
+            zfm_kwargs["int4_group_size"] = config["int4_group_size"]
     zfm = ZeroFlushModel(config["model"], **zfm_kwargs)
     result["load_s"] = time.perf_counter() - t_load
 
@@ -245,7 +247,12 @@ def run(config: dict) -> dict:
 def config_slug(config: dict) -> str:
     model = config["model"].rsplit("/", 1)[-1].lower()
     qt = config.get("quantize_transfer")
-    quant = "fp16" if not qt else ("int4custom" if qt == "int4" else "int8custom")
+    if not qt:
+        quant = "fp16"
+    elif qt == "int4":
+        quant = f"int4g{config.get('int4_group_size', 128)}"
+    else:
+        quant = "int8custom"
     return (f"{model}_{quant}_pin{config['pin_ram_fraction']}"
             f"_bud{config['vram_budget_mb']}_pf{config['prefetch_depth']}")
 
@@ -259,7 +266,8 @@ def main() -> None:
     p.add_argument("--quantize-transfer", nargs="?", const="int8",
                    choices=["int8", "int4"], default=False,
                    help="Custom weight-only Quant-Master + On-GPU-Dequant "
-                        "(Auftrag M; 'int4' = M5 gepackt)")
+                        "(Auftrag M; 'int4' = group-wise gepackt, Auftrag P)")
+    p.add_argument("--int4-group-size", type=int, default=128)
     p.add_argument("--max-new-tokens", type=int, default=32)
     p.add_argument("--generate-timeout-s", type=float, default=600.0)
     p.add_argument("--tag", default="", help="Zusatz-Suffix fuer den Dateinamen")
@@ -272,6 +280,7 @@ def main() -> None:
         "prefetch_depth": args.prefetch_depth,
         "pin_ram_fraction": args.pin_ram_fraction,
         "quantize_transfer": args.quantize_transfer,
+        "int4_group_size": args.int4_group_size,
         "max_new_tokens": args.max_new_tokens,
         "generate_timeout_s": args.generate_timeout_s,
         "verbose": args.verbose,
