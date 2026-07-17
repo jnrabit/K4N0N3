@@ -43,10 +43,18 @@ class MemoryManager:
             return 0.0
         return self.used_bytes() / self.budget_bytes
 
-    def mark_on_gpu(self, name: str, module: torch.nn.Module) -> list[str]:
-        """Register a module on GPU. Returns list of evicted layer names (LRU order)."""
+    def mark_on_gpu(self, name: str, module: torch.nn.Module,
+                    size_bytes: int | None = None) -> list[str]:
+        """Register a module on GPU. Returns list of evicted layer names (LRU order).
+
+        size_bytes: Groesse der Buchung. Bei quantize_transfer muss das die
+        fp16-GPU-Groesse sein (nach dem Dequant liegt der Layer als fp16 im
+        VRAM), nicht die int8-Transfergroesse — der LayerManager liefert dafuer
+        die vor der Quantisierung gemessene Groesse. Ohne Angabe: aus den
+        aktuellen Params berechnet.
+        """
         evicted: list[str] = []
-        size = _module_param_bytes(module)
+        size = size_bytes if size_bytes is not None else _module_param_bytes(module)
         if name in self._on_gpu:
             self._on_gpu.move_to_end(name)
             prev = self._on_gpu[name]

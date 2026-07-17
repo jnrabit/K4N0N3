@@ -46,6 +46,7 @@ class ZeroFlushModel:
         *,
         verbose: bool = False,
         pin_ram_fraction: float = 0.7,
+        quantize_transfer: bool = False,
         **hf_kwargs: Any,
     ):
         self.model_name = model_name
@@ -100,6 +101,7 @@ class ZeroFlushModel:
             prefetch_depth=prefetch_depth,
             verbose=verbose,
             pin_ram_fraction=pin_ram_fraction,
+            quantize_transfer=quantize_transfer,
         )
 
     def _guess_layer_prefix(self) -> str:

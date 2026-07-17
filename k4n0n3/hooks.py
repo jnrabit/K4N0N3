@@ -26,12 +26,32 @@ class LayerInfo:
     compute_time_ms: float = 0.0
 
 
+# -- M1: custom weight-only int8 (symmetrisch, per-Output-Channel) -----------
+
+
+def quantize_per_channel_int8(w: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    """scale[c] = max(|W[c,:]|) / 127 (fp16-Vektor), W_int8[c,:] = round(W[c,:]/scale[c])."""
+    wf = w.detach().float()
+    scale = wf.abs().amax(dim=1).div_(127.0).clamp_(min=2**-24)
+    q = torch.round(wf / scale.unsqueeze(1)).clamp_(-127, 127).to(torch.int8)
+    return q, scale.to(torch.float16)
+
+
+def dequantize_int8(q: torch.Tensor, scale: torch.Tensor) -> torch.Tensor:
+    return q.to(torch.float16) * scale.unsqueeze(1)
+
+
 class LayerManager:
     """Per-layer device placement via forward hooks with async prefetch.
 
     Weights live in pinned CPU memory as a canonical master copy.
     "Upload"  = copy from pinned master → GPU (async).
     "Offload" = drop GPU tensor, point .data back to pinned master (no D2H).
+
+    quantize_transfer=True (M): Linear-Weights innerhalb der Layer liegen als
+    int8-Master ({"q", "scale"}) im RAM; der Upload kopiert int8 + scale und
+    dequantisiert auf der GPU zu fp16. Spart PCIe-Transfer (halbiert), NICHT
+    GPU-VRAM — der MemoryManager bucht weiterhin die fp16-GPU-Groesse.
     """
 
     def __init__(
@@ -43,6 +63,7 @@ class LayerManager:
         *,
         verbose: bool = False,
         pin_ram_fraction: float = 0.7,
+        quantize_transfer: bool = False,
     ):
         self.model = model
         self.prefetch_depth = max(1, prefetch_depth)
@@ -56,18 +77,29 @@ class LayerManager:
         self._prepared = False
 
         self._cuda_available = torch.cuda.is_available()
+        self._quantize_transfer = quantize_transfer
+        if quantize_transfer and not self._cuda_available:
+            raise ValueError(
+                "quantize_transfer=True requires CUDA/ROCm: die Layer-Weights "
+                "liegen dann nur als int8-Master vor und ein CPU-Forward wuerde "
+                "auf int8-Daten rechnen (stiller Muell-Output). Ohne GPU den "
+                "Default quantize_transfer=False verwenden."
+            )
         self._prefetch_stream: torch.cuda.Stream | None = (
             torch.cuda.Stream() if self._cuda_available else None
         )
         self._prefetch_events: dict[str, torch.cuda.Event] = {}
 
-        # Pinned master copies: layer_name -> {param_name: pinned_tensor}
-        self._cpu_master: dict[str, dict[str, torch.Tensor]] = {}
+        # Master copies: layer_name -> {param_name: pinned_tensor | {"q","scale"}}
+        self._cpu_master: dict[str, dict] = {}
         # Fast param lookup: layer_name -> {param_name: nn.Parameter}
         self._param_refs: dict[str, dict[str, torch.nn.Parameter]] = {}
         # Per-layer pin status
         self._pinned: dict[str, bool] = {}
         self._pin_ram_fraction = max(0.0, min(1.0, pin_ram_fraction))
+        # fp16-GPU-Groesse pro Layer (vor Quantisierung gemessen) — Basis der
+        # VRAM-Buchung, auch wenn der Transfer int8 ist
+        self._layer_gpu_bytes: dict[str, int] = {}
 
         self._discover_layers(layer_prefix)
         self._measure_layer_sizes()
@@ -116,6 +148,7 @@ class LayerManager:
                 if p.device.type != "meta"
             )
             self._layer_info[name].size_mb = nbytes / (1024 * 1024)
+            self._layer_gpu_bytes[name] = nbytes
         if self.verbose:
             total = sum(li.size_mb for li in self._layer_info.values())
             avg = total / max(len(self._layers), 1)
@@ -135,6 +168,20 @@ class LayerManager:
 
         for name in self._layer_list:
             mod = self._layers[name]
+
+            if self._quantize_transfer:
+                master, pref, layer_bytes = self._build_quantized_master(mod)
+                can_pin = layer_bytes <= pin_budget and self._pin_ram_fraction > 0.0
+                if can_pin and _pin_master_inplace(mod, master, pref):
+                    pin_budget -= layer_bytes
+                    total_pinned_bytes += layer_bytes
+                    self._pinned[name] = True
+                else:
+                    self._pinned[name] = False
+                self._cpu_master[name] = master
+                self._param_refs[name] = pref
+                continue
+
             master: dict[str, torch.Tensor] = {}
             pref: dict[str, torch.nn.Parameter] = {}
             layer_bytes = sum(p.numel() * p.element_size() for p in mod.parameters())
@@ -184,12 +231,44 @@ class LayerManager:
             n_total = len(self._layer_list)
             total_mb = sum(p.numel() * p.element_size() for p in self.model.parameters()) / 1024**2
             pinned_mb = sum(
-                sum(t.numel() * t.element_size() for t in d.values())
+                sum(_entry_bytes(t) for t in d.values())
                 for n, d in self._cpu_master.items() if self._pinned.get(n, False)
             ) / 1024**2
             print(f"[K4N0N3] Pinned {n_pinned}/{n_total} layers "
                   f"({pinned_mb:.0f}/{total_mb:.0f} MB), "
-                  f"pin budget {self._pin_ram_fraction*100:.0f}% RAM")
+                  f"pin budget {self._pin_ram_fraction*100:.0f}% RAM"
+                  + (" | quantize_transfer=int8" if self._quantize_transfer else ""))
+
+    def _build_quantized_master(self, mod: torch.nn.Module) -> tuple[dict, dict, int]:
+        """M1: Linear-Weights → int8-Master {"q","scale"}; alles andere direkte Master.
+
+        Drop-Entscheidung (M2): p.data zeigt nach Drop auf den int8-Master —
+        es existiert bewusst keine fp16-CPU-Kopie mehr (RAM-Halbierung ist
+        Kernthese 1). Der Upload-Pfad liest grundsaetzlich aus der
+        Master-Struktur, nie aus p.data. CPU-Forward ist damit unmoeglich,
+        deshalb verlangt __init__ bei quantize_transfer=True eine GPU.
+        """
+        linear_weights = {
+            (f"{sub}.weight" if sub else "weight")
+            for sub, m in mod.named_modules()
+            if isinstance(m, torch.nn.Linear)
+        }
+        master: dict = {}
+        pref: dict[str, torch.nn.Parameter] = {}
+        for pname, param in mod.named_parameters():
+            if pname in linear_weights and param.dim() == 2:
+                q, scale = quantize_per_channel_int8(param.data)
+                master[pname] = {"q": q, "scale": scale}
+                # Inference-only: int8-.data ist mit requires_grad unvereinbar
+                param.requires_grad_(False)
+                param.data = q  # fp16-Original wird freigegeben
+            else:
+                master[pname] = param.data
+            pref[pname] = param
+        for bname, buf in mod.named_buffers():
+            master[bname] = buf
+        layer_bytes = sum(_entry_bytes(e) for e in master.values())
+        return master, pref, layer_bytes
 
     # -- hooks --------------------------------------------------------------
 
@@ -204,7 +283,7 @@ class LayerManager:
             if not self._prepared:
                 self.prepare()
             t0 = time.perf_counter()
-            self.memory.mark_on_gpu(name, module)
+            self.memory.mark_on_gpu(name, module, self._layer_gpu_bytes.get(name))
             self._ensure_on_gpu(name)
             dt = (time.perf_counter() - t0) * 1000
             self._layer_info[name].transfer_time_ms = dt
@@ -261,13 +340,15 @@ class LayerManager:
         if info.state != LayerState.ON_CPU:
             return
         # B: reserve budget before copying — evict if needed
-        evicted = self.memory.mark_on_gpu(name, self._layers[name])
+        evicted = self.memory.mark_on_gpu(name, self._layers[name], self._layer_gpu_bytes.get(name))
         for ev_name in evicted:
             if ev_name != name:
                 self._offload(ev_name)
         info.state = LayerState.PREFETCHING
         with torch.cuda.stream(self._prefetch_stream):
             _upload_layer(self._layers[name], self._cpu_master.get(name, {}), self._param_refs.get(name))
+        # Event NACH dem Dequant (letzter Kernel im Stream) — der Konsument
+        # braucht das fertige fp16, nicht nur die Kopie
         self._prefetch_events[name] = self._prefetch_stream.record_event()
 
     # -- A3: offload = drop GPU tensor, point back to pinned master ---------
@@ -316,7 +397,7 @@ class LayerManager:
             name = self._layer_list[i]
             if i == 0:
                 self._ensure_on_gpu(name)
-                self.memory.mark_on_gpu(name, self._layers[name])
+                self.memory.mark_on_gpu(name, self._layers[name], self._layer_gpu_bytes.get(name))
             else:
                 self._prefetch_async(name)
 
@@ -369,37 +450,56 @@ class LayerManager:
         self._hook_handles.clear()
 
 
-# -- A2 helpers: per-parameter upload/drop ----------------------------------
+# -- A2/M2 helpers: per-parameter upload/drop --------------------------------
 
 
-def _upload_layer(module: torch.nn.Module, master: dict[str, torch.Tensor],
+def _upload_layer(module: torch.nn.Module, master: dict,
                   param_refs: dict[str, torch.nn.Parameter] | None = None) -> None:
-    """Copy each param/buffer from pinned master to GPU (non-blocking)."""
+    """Copy each param/buffer from master to GPU (non-blocking).
+
+    int8-Master ({"q","scale"}): Copy + On-GPU-Dequant im aufrufenden Stream.
+    Die int8/scale-Staging-Tensoren verlieren nach dem Dequant ihre Referenz,
+    der Allocator gibt sie frei.
+    """
     if param_refs is None:
         param_dict = dict(module.named_parameters())
     else:
         param_dict = param_refs
-    for pname, pinned in master.items():
+    for pname, entry in master.items():
         param = param_dict.get(pname)
+        if isinstance(entry, dict):  # M2: int8 + scale → fp16 auf der GPU
+            if param is not None:
+                q_gpu = entry["q"].to("cuda", non_blocking=True)
+                s_gpu = entry["scale"].to("cuda", non_blocking=True)
+                param.data = dequantize_int8(q_gpu, s_gpu)
+            continue
         if param is not None:
-            param.data = pinned.to("cuda", non_blocking=True)
+            param.data = entry.to("cuda", non_blocking=True)
         elif pname in module._buffers:
-            module._buffers[pname] = pinned.to("cuda", non_blocking=True)
+            module._buffers[pname] = entry.to("cuda", non_blocking=True)
 
 
-def _drop_layer(module: torch.nn.Module, master: dict[str, torch.Tensor],
+def _drop_layer(module: torch.nn.Module, master: dict,
                 param_refs: dict[str, torch.nn.Parameter] | None = None) -> None:
-    """Point each param/buffer back to its pinned CPU master — GPU tensor freed."""
+    """Point each param/buffer back to its CPU master — GPU tensor freed.
+
+    int8-Master: p.data zeigt nach dem Drop auf den int8-Master (siehe
+    _build_quantized_master fuer die Begruendung).
+    """
     if param_refs is None:
         param_dict = dict(module.named_parameters())
     else:
         param_dict = param_refs
-    for pname, pinned in master.items():
+    for pname, entry in master.items():
         param = param_dict.get(pname)
+        if isinstance(entry, dict):
+            if param is not None:
+                param.data = entry["q"]
+            continue
         if param is not None:
-            param.data = pinned
+            param.data = entry
         elif pname in module._buffers:
-            module._buffers[pname] = pinned
+            module._buffers[pname] = entry
 
 
 def _get_param_by_name(module: torch.nn.Module, name: str) -> torch.nn.Parameter | None:
@@ -410,6 +510,37 @@ def _get_param_by_name(module: torch.nn.Module, name: str) -> torch.nn.Parameter
 
 
 # -- helpers --------------------------------------------------------------
+
+
+def _entry_bytes(entry) -> int:
+    """Bytes eines Master-Eintrags — plain Tensor oder Quant-Dict {"q","scale"}."""
+    if isinstance(entry, dict):
+        return sum(t.numel() * t.element_size() for t in entry.values())
+    return entry.numel() * entry.element_size()
+
+
+def _pin_master_inplace(mod: torch.nn.Module, master: dict,
+                        pref: dict[str, torch.nn.Parameter]) -> bool:
+    """Pin all master entries in place; re-point param/buffer data. False on failure."""
+    try:
+        for key in list(master.keys()):
+            entry = master[key]
+            if isinstance(entry, dict):
+                q = entry["q"].pin_memory()
+                scale = entry["scale"].pin_memory()
+                master[key] = {"q": q, "scale": scale}
+                if key in pref:
+                    pref[key].data = q
+            else:
+                pinned = entry if entry.is_pinned() else entry.pin_memory()
+                master[key] = pinned
+                if key in pref:
+                    pref[key].data = pinned
+                elif key in mod._buffers:
+                    mod._buffers[key] = pinned
+    except RuntimeError:
+        return False
+    return True
 
 
 def _matches_any_layer(mod_name: str, layer_set: set[str]) -> bool:
