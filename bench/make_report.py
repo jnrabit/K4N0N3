@@ -155,12 +155,29 @@ def main() -> None:
 
     # -- L-Verdikt -----------------------------------------------------------
     lines += ["## L-Verdikt: bitsandbytes unter echtem Offload-Druck", ""]
-    if spikes:
-        s = spikes[-1]
-        lines.append(f"**{s.get('verdict', 'kein Verdikt')}**")
+    main_spikes = [s for s in spikes if s.get("verdict")]
+    if main_spikes:
+        s = main_spikes[-1]
+        # Verdikt fuer den K4N0N3-Zweck aus den Messpunkten abgeleitet:
+        # Offloading, das kein VRAM freigibt, ist kein Offloading.
+        frees = s.get("l2_offload_frees_mb")
+        expected = s.get("l2_offload_expected_mb") or 1
+        if frees is not None and frees < 0.5 * expected:
+            lines.append(f"**inkompatibel** — Drop gibt {frees:.1f} statt "
+                         f"~{expected:.0f} MB frei; Offloading findet real nicht statt "
+                         f"(Spike-Verdikt woertlich: \"{s['verdict']}\").")
+        else:
+            lines.append(f"**{s['verdict']}**")
         lines.append("")
         for f_ in s.get("findings", []):
             lines.append(f"- {f_}")
+        for extra in spikes:
+            if extra.get("verdict") or not extra.get("findings"):
+                continue
+            lines.append("")
+            lines.append(f"Ursachen-Nachmessung (`{extra['_file']}`):")
+            for f_ in extra["findings"]:
+                lines.append(f"- {f_}")
     else:
         lines.append("nicht messbar, weil kein L-Spike-Lauf vorliegt.")
     lines.append("")
@@ -186,9 +203,11 @@ def main() -> None:
             else:
                 lines.append("- Mechanik-Check nicht messbar, weil: "
                              f"{m.get('full_gpu_error', 'unbekannt')}")
-            if m.get("divergenz_vs_fp16_ab_token") is not None:
-                lines.append(f"- Divergenz zur fp16-Referenz ab Token "
-                             f"{m['divergenz_vs_fp16_ab_token']} von 32 "
+            div = m.get("divergenz_vs_fp16_ab_token")
+            if div is not None:
+                div_txt = ("keine Divergenz innerhalb der 32 Tokens" if div >= 32
+                           else f"Divergenz ab Token {div} von 32")
+                lines.append(f"- Greedy vs. fp16-Referenz: {div_txt} "
                              f"(Referenz: `{m.get('fp16_greedy_source')}`).")
             if m.get("mean_abs_logit_diff_first_token") is not None:
                 lines.append(f"- Mittlere |Logit-Differenz| am ersten Token: "
@@ -232,9 +251,21 @@ def main() -> None:
             lines.append("")
             lines.append(
                 "**int8-custom in Produktcode ueberfuehren: ja** — Transferhalbierung "
-                "schlaegt messbar durch (Zahlen oben). Naechster Schritt int4-gepackt, "
-                "sofern der Dequant-Anteil laut Messung nicht dominiert."
+                "schlaegt messbar durch (Zahlen oben)."
             )
+            int4_m3 = next((m for m in reversed(m3s) if m.get("quant") == "int4"), None)
+            int4_div = int4_m3.get("divergenz_vs_fp16_ab_token") if int4_m3 else None
+            if int4 and int4_div is not None and int4_div < 8:
+                lines.append(
+                    f"**int4 in dieser Form: nein** — nur Faktor "
+                    f"{fmt(wf_int8 / int4['warm_forward_ms']['median'], 2)} schneller als "
+                    f"int8, aber greedy divergiert bereits ab Token {int4_div} von der "
+                    f"fp16-Referenz (per-Channel ohne Grouping zu grob). Vor einem "
+                    f"weiteren int4-Anlauf: Group-wise-Quantisierung, dann neu messen."
+                )
+            elif int4 is None:
+                lines.append("int4-gepackt: nicht gemessen — vor einer Empfehlung "
+                             "M5-Laeufe und M3-int4-Check fahren.")
         else:
             lines.append("")
             lines.append(
