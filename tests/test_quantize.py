@@ -2,7 +2,13 @@
 import pytest
 import torch
 
-from k4n0n3.hooks import LayerManager, dequantize_int8, quantize_per_channel_int8
+from k4n0n3.hooks import (
+    LayerManager,
+    dequantize_int4,
+    dequantize_int8,
+    quantize_per_channel_int4,
+    quantize_per_channel_int8,
+)
 
 
 class HalfTransformer(torch.nn.Module):
@@ -63,6 +69,57 @@ def test_quantize_range_full():
     assert q.max() <= 127 and q.min() >= -127
     # Pro Kanal wird das Betragsmaximum auf 127 abgebildet
     assert (q.abs().amax(dim=1) == 127).all()
+
+
+# -- M5: int4-gepackt --------------------------------------------------------
+
+
+def test_int4_pack_shapes():
+    w = torch.randn(16, 32, dtype=torch.float16)
+    packed, scale = quantize_per_channel_int4(w)
+    assert packed.dtype == torch.uint8 and packed.shape == (16, 16)
+    assert scale.dtype == torch.float16 and scale.shape == (16,)
+
+
+def test_int4_roundtrip_error_bounded():
+    torch.manual_seed(3)
+    w = torch.randn(64, 128, dtype=torch.float16)
+    packed, scale = quantize_per_channel_int4(w)
+    deq = dequantize_int4(packed, scale)
+    assert deq.shape == w.shape and deq.dtype == torch.float16
+    # Rundung <= scale/2 plus fp16-Terme; scale = max/7, also grob
+    bound = scale.float().unsqueeze(1) * 0.65 + 1e-6
+    assert ((w.float() - deq.float()).abs() <= bound).all()
+
+
+def test_int4_negative_values_roundtrip():
+    w = torch.tensor([[-7.0, 7.0, -1.0, 0.0]], dtype=torch.float16)
+    packed, scale = quantize_per_channel_int4(w)
+    deq = dequantize_int4(packed, scale)
+    assert torch.allclose(deq.float(), w.float(), atol=0.51)
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="No CUDA available")
+def test_int4_mechanik_offload_vs_full_gpu_identisch():
+    from k4n0n3.hooks import _upload_layer
+
+    torch.manual_seed(4)
+    model = HalfTransformer(num_layers=4)
+    mgr = LayerManager(model, layer_prefix="model.layers",
+                       vram_budget_mb=1, quantize_transfer="int4")
+    m0 = mgr._cpu_master["model.layers.0"]
+    assert "q4" in m0["weight"] and m0["weight"]["q4"].dtype == torch.uint8
+    x = torch.randn(2, 8, 64, dtype=torch.float16, device="cuda")
+    mgr.prepare()
+    with torch.no_grad():
+        y_offload = model(x).clone()
+    mgr.remove_hooks()
+    for name in mgr._layer_list:
+        _upload_layer(mgr._layers[name], mgr._cpu_master[name], mgr._param_refs[name])
+    torch.cuda.synchronize()
+    with torch.no_grad():
+        y_full = model(x)
+    assert torch.equal(y_offload, y_full)
 
 
 # -- LayerManager-Integration ------------------------------------------------

@@ -41,6 +41,32 @@ def dequantize_int8(q: torch.Tensor, scale: torch.Tensor) -> torch.Tensor:
     return q.to(torch.float16) * scale.unsqueeze(1)
 
 
+# -- M5: int4-gepackt — zwei Nibbles pro Byte, halbiert den Transfer nochmal --
+
+
+def quantize_per_channel_int4(w: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    """scale[c] = max(|W[c,:]|) / 7, q in [-7, 7], Spalten 2j/2j+1 in ein Byte gepackt.
+
+    Setzt eine gerade Spaltenzahl voraus (Aufrufer prueft und faellt sonst
+    auf int8 zurueck).
+    """
+    wf = w.detach().float()
+    scale = wf.abs().amax(dim=1).div_(7.0).clamp_(min=2**-24)
+    q = torch.round(wf / scale.unsqueeze(1)).clamp_(-7, 7).to(torch.int16)
+    nib = q & 0xF  # Zweierkomplement-Nibble
+    packed = (nib[:, 0::2] | (nib[:, 1::2] << 4)).to(torch.uint8)
+    return packed, scale.to(torch.float16)
+
+
+def dequantize_int4(packed: torch.Tensor, scale: torch.Tensor) -> torch.Tensor:
+    lo = (packed & 0x0F).to(torch.int16)
+    hi = (packed >> 4).to(torch.int16)
+    lo = torch.where(lo > 7, lo - 16, lo)
+    hi = torch.where(hi > 7, hi - 16, hi)
+    q = torch.stack((lo, hi), dim=2).flatten(1)  # [lo0, hi0, lo1, ...] = Spalten 0,1,2,...
+    return q.to(torch.float16) * scale.unsqueeze(1)
+
+
 class LayerManager:
     """Per-layer device placement via forward hooks with async prefetch.
 
@@ -63,7 +89,7 @@ class LayerManager:
         *,
         verbose: bool = False,
         pin_ram_fraction: float = 0.7,
-        quantize_transfer: bool = False,
+        quantize_transfer: bool | str = False,
     ):
         self.model = model
         self.prefetch_depth = max(1, prefetch_depth)
@@ -77,6 +103,12 @@ class LayerManager:
         self._prepared = False
 
         self._cuda_available = torch.cuda.is_available()
+        # False → aus; True/"int8" → int8-Master; "int4" → int4-gepackt (M5)
+        if quantize_transfer is True:
+            quantize_transfer = "int8"
+        if quantize_transfer not in (False, "int8", "int4"):
+            raise ValueError(f"quantize_transfer: erwartet False/True/'int8'/'int4', "
+                             f"bekommen: {quantize_transfer!r}")
         self._quantize_transfer = quantize_transfer
         if quantize_transfer and not self._cuda_available:
             raise ValueError(
@@ -257,11 +289,16 @@ class LayerManager:
         pref: dict[str, torch.nn.Parameter] = {}
         for pname, param in mod.named_parameters():
             if pname in linear_weights and param.dim() == 2:
-                q, scale = quantize_per_channel_int8(param.data)
-                master[pname] = {"q": q, "scale": scale}
-                # Inference-only: int8-.data ist mit requires_grad unvereinbar
+                if self._quantize_transfer == "int4" and param.shape[1] % 2 == 0:
+                    packed, scale = quantize_per_channel_int4(param.data)
+                    entry = {"q4": packed, "scale": scale}
+                else:  # int8 — auch Fallback fuer ungerade Spaltenzahl bei int4
+                    q, scale = quantize_per_channel_int8(param.data)
+                    entry = {"q": q, "scale": scale}
+                master[pname] = entry
+                # Inference-only: int-.data ist mit requires_grad unvereinbar
                 param.requires_grad_(False)
-                param.data = q  # fp16-Original wird freigegeben
+                param.data = _packed_tensor(entry)  # fp16-Original wird freigegeben
             else:
                 master[pname] = param.data
             pref[pname] = param
@@ -467,11 +504,14 @@ def _upload_layer(module: torch.nn.Module, master: dict,
         param_dict = param_refs
     for pname, entry in master.items():
         param = param_dict.get(pname)
-        if isinstance(entry, dict):  # M2: int8 + scale → fp16 auf der GPU
+        if isinstance(entry, dict):  # M2/M5: int8/int4 + scale → fp16 auf der GPU
             if param is not None:
-                q_gpu = entry["q"].to("cuda", non_blocking=True)
+                q_gpu = _packed_tensor(entry).to("cuda", non_blocking=True)
                 s_gpu = entry["scale"].to("cuda", non_blocking=True)
-                param.data = dequantize_int8(q_gpu, s_gpu)
+                if "q4" in entry:
+                    param.data = dequantize_int4(q_gpu, s_gpu)
+                else:
+                    param.data = dequantize_int8(q_gpu, s_gpu)
             continue
         if param is not None:
             param.data = entry.to("cuda", non_blocking=True)
@@ -494,7 +534,7 @@ def _drop_layer(module: torch.nn.Module, master: dict,
         param = param_dict.get(pname)
         if isinstance(entry, dict):
             if param is not None:
-                param.data = entry["q"]
+                param.data = _packed_tensor(entry)
             continue
         if param is not None:
             param.data = entry
@@ -513,10 +553,15 @@ def _get_param_by_name(module: torch.nn.Module, name: str) -> torch.nn.Parameter
 
 
 def _entry_bytes(entry) -> int:
-    """Bytes eines Master-Eintrags — plain Tensor oder Quant-Dict {"q","scale"}."""
+    """Bytes eines Master-Eintrags — plain Tensor oder Quant-Dict {"q"|"q4","scale"}."""
     if isinstance(entry, dict):
         return sum(t.numel() * t.element_size() for t in entry.values())
     return entry.numel() * entry.element_size()
+
+
+def _packed_tensor(entry: dict) -> torch.Tensor:
+    """Der Transfer-Tensor eines Quant-Eintrags (int8-Matrix oder int4-Packung)."""
+    return entry["q4"] if "q4" in entry else entry["q"]
 
 
 def _pin_master_inplace(mod: torch.nn.Module, master: dict,
@@ -526,11 +571,10 @@ def _pin_master_inplace(mod: torch.nn.Module, master: dict,
         for key in list(master.keys()):
             entry = master[key]
             if isinstance(entry, dict):
-                q = entry["q"].pin_memory()
-                scale = entry["scale"].pin_memory()
-                master[key] = {"q": q, "scale": scale}
+                pinned_entry = {k: t.pin_memory() for k, t in entry.items()}
+                master[key] = pinned_entry
                 if key in pref:
-                    pref[key].data = q
+                    pref[key].data = _packed_tensor(pinned_entry)
             else:
                 pinned = entry if entry.is_pinned() else entry.pin_memory()
                 master[key] = pinned

@@ -197,7 +197,7 @@ def run(config: dict) -> dict:
         verbose=config.get("verbose", False),
     )
     if config.get("quantize_transfer"):
-        zfm_kwargs["quantize_transfer"] = True
+        zfm_kwargs["quantize_transfer"] = config["quantize_transfer"]
     zfm = ZeroFlushModel(config["model"], **zfm_kwargs)
     result["load_s"] = time.perf_counter() - t_load
 
@@ -244,7 +244,8 @@ def run(config: dict) -> dict:
 
 def config_slug(config: dict) -> str:
     model = config["model"].rsplit("/", 1)[-1].lower()
-    quant = "int8custom" if config.get("quantize_transfer") else "fp16"
+    qt = config.get("quantize_transfer")
+    quant = "fp16" if not qt else ("int4custom" if qt == "int4" else "int8custom")
     return (f"{model}_{quant}_pin{config['pin_ram_fraction']}"
             f"_bud{config['vram_budget_mb']}_pf{config['prefetch_depth']}")
 
@@ -255,8 +256,10 @@ def main() -> None:
     p.add_argument("--vram-budget-mb", type=int, default=4096)
     p.add_argument("--prefetch-depth", type=int, default=1)
     p.add_argument("--pin-ram-fraction", type=float, default=0.7)
-    p.add_argument("--quantize-transfer", action="store_true",
-                   help="Custom weight-only int8 Master + On-GPU-Dequant (Auftrag M)")
+    p.add_argument("--quantize-transfer", nargs="?", const="int8",
+                   choices=["int8", "int4"], default=False,
+                   help="Custom weight-only Quant-Master + On-GPU-Dequant "
+                        "(Auftrag M; 'int4' = M5 gepackt)")
     p.add_argument("--max-new-tokens", type=int, default=32)
     p.add_argument("--generate-timeout-s", type=float, default=600.0)
     p.add_argument("--tag", default="", help="Zusatz-Suffix fuer den Dateinamen")

@@ -46,7 +46,7 @@ class ZeroFlushModel:
         *,
         verbose: bool = False,
         pin_ram_fraction: float = 0.7,
-        quantize_transfer: bool = False,
+        quantize_transfer: bool | str = False,  # False | True/"int8" | "int4"
         **hf_kwargs: Any,
     ):
         self.model_name = model_name
