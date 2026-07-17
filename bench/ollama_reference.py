@@ -24,14 +24,15 @@ def parse_verbose(stderr: str) -> dict:
     """Parst die --verbose-Statistik von ollama run."""
     out: dict = {}
     patterns = {
-        "prompt_eval_count": r"prompt eval count:\s+(\d+)",
-        "eval_count": r"eval count:\s+(\d+)",
-        "eval_duration_s": r"eval duration:\s+([\d.]+)(m?s)",
-        "total_duration_s": r"total duration:\s+([\d.]+)(m?s|s)",
-        "eval_rate_tok_s": r"eval rate:\s+([\d.]+) tokens/s",
+        "prompt_eval_count": r"^prompt eval count:\s+(\d+)",
+        "eval_count": r"^eval count:\s+(\d+)",
+        "eval_duration_s": r"^eval duration:\s+([\d.]+)(m?s)",
+        "total_duration_s": r"^total duration:\s+([\d.]+)(m?s|s)",
+        "eval_rate_tok_s": r"^eval rate:\s+([\d.]+) tokens/s",
     }
     for key, pat in patterns.items():
-        m = re.search(pat, stderr)
+        # ^-Anker zwingend: "prompt eval rate" enthaelt "eval rate" als Substring
+        m = re.search(pat, stderr, re.MULTILINE)
         if not m:
             continue
         val = float(m.group(1))
@@ -44,14 +45,11 @@ def parse_verbose(stderr: str) -> dict:
 def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--model", default="qwen2.5:3b", help="Ollama-Modellname (GGUF q4)")
-    p.add_argument("--max-tokens", type=int, default=32)
     args = p.parse_args()
 
     proc = subprocess.run(
         ["ollama", "run", args.model, "--verbose", PROMPT],
         capture_output=True, text=True, timeout=900,
-        env={"PATH": "/usr/local/bin:/usr/bin:/bin",
-             "OLLAMA_NUM_PREDICT": str(args.max_tokens)},
     )
     stats = parse_verbose(proc.stderr)
     if not stats.get("eval_count"):

@@ -102,6 +102,7 @@ def main() -> None:
     # Phase 2: int8-custom mit Offloading
     log("Phase 2: int8-custom, greedy MIT Offloading...")
     zfm = ZeroFlushModel(args.model, quantize_transfer=args.quant)
+    zfm.prepare()  # Embeddings/Norm/Head auf GPU — auch wenn Phase 1 uebersprungen wurde
     if fp16_logits is not None:
         int8_logits = last_token_logits(zfm)
         result["mean_abs_logit_diff_first_token"] = round(

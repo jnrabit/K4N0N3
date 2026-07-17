@@ -165,29 +165,36 @@ def main() -> None:
         lines.append("nicht messbar, weil kein L-Spike-Lauf vorliegt.")
     lines.append("")
 
-    # -- M3: Korrektheit int8-custom -----------------------------------------
-    lines += ["## M3: Korrektheit int8-custom", ""]
+    # -- M3: Korrektheit custom-Quantisierung --------------------------------
+    lines += ["## M3: Korrektheit int8/int4-custom", ""]
     if m3s:
-        m = m3s[-1]
-        mech = m.get("mechanik_identisch")
-        if mech is True:
-            lines.append("- **Mechanik-Korrektheit bestanden**: greedy_tokens mit vs. "
-                         "ohne Offloading (gleiche int8-Master) identisch.")
-        elif mech is False:
-            lines.append("- **Mechanik-Korrektheit VERFEHLT**: greedy_tokens weichen ab "
-                         "— hartes Kriterium, Details im JSON "
-                         f"(`{m['_file']}`).")
-        else:
-            lines.append("- Mechanik-Check nicht messbar, weil: "
-                         f"{m.get('full_gpu_error', 'unbekannt')}")
-        if m.get("divergenz_vs_fp16_ab_token") is not None:
-            lines.append(f"- Quantisierungsqualitaet: Divergenz zur fp16-Referenz "
-                         f"ab Token {m['divergenz_vs_fp16_ab_token']} von 32 "
-                         f"(Referenz: `{m.get('fp16_greedy_source')}`).")
-        if m.get("mean_abs_logit_diff_first_token") is not None:
-            lines.append(f"- Mittlere |Logit-Differenz| am ersten Token: "
-                         f"{m['mean_abs_logit_diff_first_token']}.")
-        lines.append("- Bewertung der Qualitaet: dem Menschen ueberlassen — "
+        by_quant: dict[str, dict] = {}
+        for m in m3s:
+            by_quant[m.get("quant", "int8")] = m  # neuester Lauf pro Quant-Stufe
+        for quant in ("int8", "int4"):
+            m = by_quant.get(quant)
+            if not m:
+                continue
+            lines.append(f"### {quant}-custom")
+            mech = m.get("mechanik_identisch")
+            if mech is True:
+                lines.append("- **Mechanik-Korrektheit bestanden**: greedy_tokens mit "
+                             "vs. ohne Offloading (gleiche Quant-Master) identisch.")
+            elif mech is False:
+                lines.append("- **Mechanik-Korrektheit VERFEHLT**: greedy_tokens "
+                             f"weichen ab — hartes Kriterium, Details in `{m['_file']}`.")
+            else:
+                lines.append("- Mechanik-Check nicht messbar, weil: "
+                             f"{m.get('full_gpu_error', 'unbekannt')}")
+            if m.get("divergenz_vs_fp16_ab_token") is not None:
+                lines.append(f"- Divergenz zur fp16-Referenz ab Token "
+                             f"{m['divergenz_vs_fp16_ab_token']} von 32 "
+                             f"(Referenz: `{m.get('fp16_greedy_source')}`).")
+            if m.get("mean_abs_logit_diff_first_token") is not None:
+                lines.append(f"- Mittlere |Logit-Differenz| am ersten Token: "
+                             f"{m['mean_abs_logit_diff_first_token']}.")
+            lines.append("")
+        lines.append("Bewertung der Qualitaet: dem Menschen ueberlassen — "
                      "das sind die Zahlen.")
     else:
         lines.append("nicht messbar, weil kein M3-Lauf vorliegt "
@@ -212,6 +219,15 @@ def main() -> None:
             f"vs. {fmt(fp16.get('master_ram_mb'), 0)} MB)."
         )
         lines.append(f"- tok/s: int8-custom {tok_s_cell(int8)} vs. fp16 {tok_s_cell(fp16)}.")
+        int4 = latest.get("int4-custom (gepackt)")
+        if int4:
+            wf_int4 = int4["warm_forward_ms"]["median"]
+            lines.append(
+                f"- int4-gepackt (M5): warm {fmt(wf_int4)} ms "
+                f"(vs. int8 {fmt(wf_int8)} ms, Faktor {fmt(wf_int8 / wf_int4 if wf_int4 else None, 2)}), "
+                f"tok/s {tok_s_cell(int4)}, Master-RAM {fmt(int4.get('master_ram_mb'), 0)} MB, "
+                f"gepinnt {int4.get('pinned_layers')} — Qualitaet siehe M3-Abschnitt."
+            )
         if factor and factor > 1.5 and int8.get("tokens_per_s"):
             lines.append("")
             lines.append(

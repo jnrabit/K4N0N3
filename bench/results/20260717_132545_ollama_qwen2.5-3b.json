@@ -1,0 +1,19 @@
+{
+  "config": {
+    "model": "qwen2.5:3b",
+    "runner": "ollama",
+    "quant": "gguf-q4",
+    "prompt": "The quick brown fox jumps over the lazy dog. Explain why this sentence is famous."
+  },
+  "git_commit": "64865289a1880959462fb56b1589c74bcc851365-dirty",
+  "timestamp": "2026-07-17T13:25:45",
+  "generate_tokens": 108,
+  "tokens_per_s": 74.15,
+  "ollama_stats": {
+    "prompt_eval_count": 46.0,
+    "eval_count": 108.0,
+    "eval_duration_s": 1.456585047,
+    "eval_rate_tok_s": 74.15
+  },
+  "reference_only": true
+}
