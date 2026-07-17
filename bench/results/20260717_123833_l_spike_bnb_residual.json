@@ -1,0 +1,43 @@
+{
+  "spike": "L_bnb_residual_check",
+  "git_commit": "f19034b63f324596a2f4cac53b6247ead7694721",
+  "timestamp": "2026-07-17T12:37:25",
+  "model": "Qwen/Qwen2.5-3B",
+  "findings": [
+    "nach Masse-.to(cpu): memory_allocated=3246 MB",
+    "nach Druck-Forward: memory_allocated=3321 MB (Modell int8 ~3240 MB \u2014 bleibt alles liegen?)",
+    "Layer 0 (gedroppt) \u2014 GPU-Tensoren in Linear8bitLt.state: 21",
+    "  self_attn.q_proj.state.CB:torch.int8:4.0MB",
+    "  self_attn.q_proj.state.SCB:torch.float32:0.0MB",
+    "  self_attn.q_proj.state.idx:torch.int64:0.0MB",
+    "  self_attn.k_proj.state.CB:torch.int8:0.5MB",
+    "  self_attn.k_proj.state.SCB:torch.float32:0.0MB",
+    "  self_attn.k_proj.state.idx:torch.int64:0.0MB",
+    "global via gc erreichbare GPU-Tensoren: 3390 MB"
+  ],
+  "allocated_after_pressure_fwd_mb": 3321.1,
+  "layer0_state_gpu_tensors": [
+    "self_attn.q_proj.state.CB:torch.int8:4.0MB",
+    "self_attn.q_proj.state.SCB:torch.float32:0.0MB",
+    "self_attn.q_proj.state.idx:torch.int64:0.0MB",
+    "self_attn.k_proj.state.CB:torch.int8:0.5MB",
+    "self_attn.k_proj.state.SCB:torch.float32:0.0MB",
+    "self_attn.k_proj.state.idx:torch.int64:0.0MB",
+    "self_attn.v_proj.state.CB:torch.int8:0.5MB",
+    "self_attn.v_proj.state.SCB:torch.float32:0.0MB",
+    "self_attn.v_proj.state.idx:torch.int64:0.0MB",
+    "self_attn.o_proj.state.CB:torch.int8:4.0MB",
+    "self_attn.o_proj.state.SCB:torch.float32:0.0MB",
+    "self_attn.o_proj.state.idx:torch.int64:0.0MB",
+    "mlp.gate_proj.state.CB:torch.int8:21.5MB",
+    "mlp.gate_proj.state.SCB:torch.float32:0.0MB",
+    "mlp.gate_proj.state.idx:torch.int64:0.0MB",
+    "mlp.up_proj.state.CB:torch.int8:21.5MB",
+    "mlp.up_proj.state.SCB:torch.float32:0.0MB",
+    "mlp.up_proj.state.idx:torch.int64:0.0MB",
+    "mlp.down_proj.state.CB:torch.int8:21.5MB",
+    "mlp.down_proj.state.SCB:torch.float32:0.0MB",
+    "mlp.down_proj.state.idx:torch.int64:0.0MB"
+  ],
+  "gc_global_cuda_mb": 3390.5
+}
