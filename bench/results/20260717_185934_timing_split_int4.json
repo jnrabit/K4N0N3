@@ -1,0 +1,36 @@
+{
+  "timing_split": true,
+  "quant": "int4",
+  "model": "Qwen/Qwen2.5-3B",
+  "git_commit": "3552b7883559ef8c31935371a7eeeb0f8db5f62c",
+  "timestamp": "2026-07-17T18:59:34",
+  "reps": 10,
+  "per_layer": [
+    {
+      "layer": "model.layers.0",
+      "pinned": true,
+      "copy_ms": 12.88,
+      "dequant_ms": 12.7
+    },
+    {
+      "layer": "model.layers.1",
+      "pinned": true,
+      "copy_ms": 12.87,
+      "dequant_ms": 12.62
+    },
+    {
+      "layer": "model.layers.2",
+      "pinned": true,
+      "copy_ms": 12.87,
+      "dequant_ms": 12.49
+    },
+    {
+      "layer": "model.layers.3",
+      "pinned": true,
+      "copy_ms": 12.86,
+      "dequant_ms": 12.38
+    }
+  ],
+  "copy_ms_median": 12.87,
+  "dequant_ms_median": 12.55
+}

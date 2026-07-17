@@ -1,0 +1,200 @@
+{"text": "Frage: Was macht K4N0N3? Antwort: executes, its parameters are moved to GPU. After execution, they are offloaded"}
+{"text": "Zusammenfassung: from k4n0n3 import ZeroFlushModel"}
+{"text": "Zusammenfassung: pip install -r requirements.txt"}
+{"text": "Dokumentation: executes, its parameters are moved to GPU. After execution, they are offloaded"}
+{"text": "Dokumentation: K4N0N3 registers **forward hooks** on every transformer layer. Before a layer"}
+{"text": "Frage: Was macht K4N0N3? Antwort: from k4n0n3 import LayerManager"}
+{"text": "Frage: Was macht K4N0N3? Antwort: Transparent **layer-level CPU/GPU offloading** for Hugging Face models. Run large"}
+{"text": "Zusammenfassung: GPT-2, Falcon, BLOOM, Gemma, Phi, Qwen2, and more"}
+{"text": "Dokumentation: Simple tensor wrapper with device tracking (no `torch.Tensor` subclass)."}
+{"text": "Dokumentation: Transparent **layer-level CPU/GPU offloading** for Hugging Face models. Run large"}
+{"text": "Dokumentation: GPT-2, Falcon, BLOOM, Gemma, Phi, Qwen2, and more"}
+{"text": "Zusammenfassung: from k4n0n3 import LayerManager"}
+{"text": "Dokumentation: manager = LayerManager(model, layer_prefix=\"model.layers\", vram_budget_mb=2048)"}
+{"text": "Frage: Was macht K4N0N3? Antwort: from k4n0n3 import ZeroFlushModel"}
+{"text": "Der wichtigste Punkt ist: prefetched** to overlap transfer with computation."}
+{"text": "Notiz: print(model.generate(\"Explain quantum computing in simple terms.\", max_length=100))"}
+{"text": "Zusammenfassung: back to CPU. While the current layer runs, upcoming layers are **asynchronously"}
+{"text": "Frage: Was macht K4N0N3? Antwort: print(model.generate(\"Explain quantum computing in simple terms.\", max_length=100))"}
+{"text": "Der wichtigste Punkt ist: K4N0N3 registers **forward hooks** on every transformer layer. Before a layer"}
+{"text": "Notiz: executes, its parameters are moved to GPU. After execution, they are offloaded"}
+{"text": "Dokumentation: Main entry point. Wraps a Hugging Face model."}
+{"text": "Frage: Was macht K4N0N3? Antwort: from k4n0n3 import ZeroFlushModel"}
+{"text": "Dokumentation: manager = LayerManager(model, layer_prefix=\"model.layers\", vram_budget_mb=2048)"}
+{"text": "Der wichtigste Punkt ist: executes, its parameters are moved to GPU. After execution, they are offloaded"}
+{"text": "Dokumentation: K4N0N3 registers **forward hooks** on every transformer layer. Before a layer"}
+{"text": "Dokumentation: \"mistralai/Mistral-7B-Instruct-v0.1\","}
+{"text": "Dokumentation: Main entry point. Wraps a Hugging Face model."}
+{"text": "Frage: Was macht K4N0N3? Antwort: GPT-2, Falcon, BLOOM, Gemma, Phi, Qwen2, and more"}
+{"text": "Zusammenfassung: LLMs on limited VRAM — no manual `.to(\"cuda\")` calls needed."}
+{"text": "Frage: Was macht K4N0N3? Antwort: \"mistralai/Mistral-7B-Instruct-v0.1\","}
+{"text": "Frage: Was macht K4N0N3? Antwort: pip install -r requirements.txt"}
+{"text": "Notiz: Low-level API for manual hook management on any `nn.Module`."}
+{"text": "Notiz: manager = LayerManager(model, layer_prefix=\"model.layers\", vram_budget_mb=2048)"}
+{"text": "Notiz: prefetched** to overlap transfer with computation."}
+{"text": "Zusammenfassung: Main entry point. Wraps a Hugging Face model."}
+{"text": "Frage: Was macht K4N0N3? Antwort: from k4n0n3 import ZeroFlushModel"}
+{"text": "Dokumentation: prefetched** to overlap transfer with computation."}
+{"text": "Zusammenfassung: pip install -r requirements.txt"}
+{"text": "Der wichtigste Punkt ist: manager = LayerManager(model, layer_prefix=\"model.layers\", vram_budget_mb=2048)"}
+{"text": "Dokumentation: from k4n0n3 import ZeroFlushModel"}
+{"text": "Notiz: pip install -r requirements.txt"}
+{"text": "Zusammenfassung: LLMs on limited VRAM — no manual `.to(\"cuda\")` calls needed."}
+{"text": "Notiz: LLMs on limited VRAM — no manual `.to(\"cuda\")` calls needed."}
+{"text": "Notiz: Low-level API for manual hook management on any `nn.Module`."}
+{"text": "Zusammenfassung: K4N0N3 registers **forward hooks** on every transformer layer. Before a layer"}
+{"text": "Zusammenfassung: print(model.generate(\"Explain quantum computing in simple terms.\", max_length=100))"}
+{"text": "Der wichtigste Punkt ist: Tracks VRAM usage and handles LRU eviction."}
+{"text": "Zusammenfassung: manager = LayerManager(model, layer_prefix=\"model.layers\", vram_budget_mb=2048)"}
+{"text": "Zusammenfassung: from k4n0n3 import ZeroFlushModel"}
+{"text": "Dokumentation: pip install -r requirements.txt"}
+{"text": "Dokumentation: from k4n0n3 import ZeroFlushModel"}
+{"text": "Dokumentation: from k4n0n3 import LayerManager"}
+{"text": "Notiz: Low-level API for manual hook management on any `nn.Module`."}
+{"text": "Zusammenfassung: pip install -r requirements.txt"}
+{"text": "Der wichtigste Punkt ist: Simple tensor wrapper with device tracking (no `torch.Tensor` subclass)."}
+{"text": "Frage: Was macht K4N0N3? Antwort: K4N0N3 registers **forward hooks** on every transformer layer. Before a layer"}
+{"text": "Zusammenfassung: executes, its parameters are moved to GPU. After execution, they are offloaded"}
+{"text": "Der wichtigste Punkt ist: prefetched** to overlap transfer with computation."}
+{"text": "Der wichtigste Punkt ist: K4N0N3 registers **forward hooks** on every transformer layer. Before a layer"}
+{"text": "Dokumentation: Low-level API for manual hook management on any `nn.Module`."}
+{"text": "Dokumentation: manager = LayerManager(model, layer_prefix=\"model.layers\", vram_budget_mb=2048)"}
+{"text": "Dokumentation: from k4n0n3 import ZeroFlushModel"}
+{"text": "Frage: Was macht K4N0N3? Antwort: Transparent **layer-level CPU/GPU offloading** for Hugging Face models. Run large"}
+{"text": "Notiz: from k4n0n3 import ZeroFlushModel"}
+{"text": "Notiz: executes, its parameters are moved to GPU. After execution, they are offloaded"}
+{"text": "Zusammenfassung: from k4n0n3 import LayerManager"}
+{"text": "Frage: Was macht K4N0N3? Antwort: manager = LayerManager(model, layer_prefix=\"model.layers\", vram_budget_mb=2048)"}
+{"text": "Dokumentation: from k4n0n3 import ZeroFlushModel"}
+{"text": "Dokumentation: prefetched** to overlap transfer with computation."}
+{"text": "Notiz: executes, its parameters are moved to GPU. After execution, they are offloaded"}
+{"text": "Dokumentation: Simple tensor wrapper with device tracking (no `torch.Tensor` subclass)."}
+{"text": "Zusammenfassung: GPT-2, Falcon, BLOOM, Gemma, Phi, Qwen2, and more"}
+{"text": "Zusammenfassung: Main entry point. Wraps a Hugging Face model."}
+{"text": "Frage: Was macht K4N0N3? Antwort: Simple tensor wrapper with device tracking (no `torch.Tensor` subclass)."}
+{"text": "Der wichtigste Punkt ist: print(model.generate(\"Explain quantum computing in simple terms.\", max_length=100))"}
+{"text": "Frage: Was macht K4N0N3? Antwort: Transparent **layer-level CPU/GPU offloading** for Hugging Face models. Run large"}
+{"text": "Notiz: Main entry point. Wraps a Hugging Face model."}
+{"text": "Frage: Was macht K4N0N3? Antwort: pip install -r requirements.txt"}
+{"text": "Dokumentation: pip install -r requirements.txt"}
+{"text": "Frage: Was macht K4N0N3? Antwort: K4N0N3 registers **forward hooks** on every transformer layer. Before a layer"}
+{"text": "Frage: Was macht K4N0N3? Antwort: Tracks VRAM usage and handles LRU eviction."}
+{"text": "Zusammenfassung: back to CPU. While the current layer runs, upcoming layers are **asynchronously"}
+{"text": "Dokumentation: Tracks VRAM usage and handles LRU eviction."}
+{"text": "Notiz: prefetched** to overlap transfer with computation."}
+{"text": "Dokumentation: Simple tensor wrapper with device tracking (no `torch.Tensor` subclass)."}
+{"text": "Zusammenfassung: from k4n0n3 import LayerManager"}
+{"text": "Notiz: GPT-2, Falcon, BLOOM, Gemma, Phi, Qwen2, and more"}
+{"text": "Notiz: Low-level API for manual hook management on any `nn.Module`."}
+{"text": "Dokumentation: manager = LayerManager(model, layer_prefix=\"model.layers\", vram_budget_mb=2048)"}
+{"text": "Frage: Was macht K4N0N3? Antwort: manager = LayerManager(model, layer_prefix=\"model.layers\", vram_budget_mb=2048)"}
+{"text": "Zusammenfassung: pip install -r requirements.txt"}
+{"text": "Notiz: K4N0N3 registers **forward hooks** on every transformer layer. Before a layer"}
+{"text": "Dokumentation: Transparent **layer-level CPU/GPU offloading** for Hugging Face models. Run large"}
+{"text": "Dokumentation: pip install -r requirements.txt"}
+{"text": "Frage: Was macht K4N0N3? Antwort: pip install -r requirements.txt"}
+{"text": "Frage: Was macht K4N0N3? Antwort: K4N0N3 registers **forward hooks** on every transformer layer. Before a layer"}
+{"text": "Frage: Was macht K4N0N3? Antwort: pip install -r requirements.txt"}
+{"text": "Notiz: LLMs on limited VRAM — no manual `.to(\"cuda\")` calls needed."}
+{"text": "Dokumentation: K4N0N3 registers **forward hooks** on every transformer layer. Before a layer"}
+{"text": "Notiz: pip install -r requirements.txt"}
+{"text": "Zusammenfassung: Tracks VRAM usage and handles LRU eviction."}
+{"text": "Dokumentation: back to CPU. While the current layer runs, upcoming layers are **asynchronously"}
+{"text": "Zusammenfassung: Tracks VRAM usage and handles LRU eviction."}
+{"text": "Der wichtigste Punkt ist: Tracks VRAM usage and handles LRU eviction."}
+{"text": "Frage: Was macht K4N0N3? Antwort: GPT-2, Falcon, BLOOM, Gemma, Phi, Qwen2, and more"}
+{"text": "Der wichtigste Punkt ist: executes, its parameters are moved to GPU. After execution, they are offloaded"}
+{"text": "Der wichtigste Punkt ist: Main entry point. Wraps a Hugging Face model."}
+{"text": "Der wichtigste Punkt ist: from k4n0n3 import LayerManager"}
+{"text": "Frage: Was macht K4N0N3? Antwort: LLMs on limited VRAM — no manual `.to(\"cuda\")` calls needed."}
+{"text": "Der wichtigste Punkt ist: LLMs on limited VRAM — no manual `.to(\"cuda\")` calls needed."}
+{"text": "Frage: Was macht K4N0N3? Antwort: print(model.generate(\"Explain quantum computing in simple terms.\", max_length=100))"}
+{"text": "Zusammenfassung: pip install -r requirements.txt"}
+{"text": "Dokumentation: GPT-2, Falcon, BLOOM, Gemma, Phi, Qwen2, and more"}
+{"text": "Zusammenfassung: manager = LayerManager(model, layer_prefix=\"model.layers\", vram_budget_mb=2048)"}
+{"text": "Zusammenfassung: from k4n0n3 import LayerManager"}
+{"text": "Der wichtigste Punkt ist: from k4n0n3 import ZeroFlushModel"}
+{"text": "Frage: Was macht K4N0N3? Antwort: pip install -r requirements.txt"}
+{"text": "Dokumentation: manager = LayerManager(model, layer_prefix=\"model.layers\", vram_budget_mb=2048)"}
+{"text": "Frage: Was macht K4N0N3? Antwort: executes, its parameters are moved to GPU. After execution, they are offloaded"}
+{"text": "Frage: Was macht K4N0N3? Antwort: Transparent **layer-level CPU/GPU offloading** for Hugging Face models. Run large"}
+{"text": "Zusammenfassung: pip install -r requirements.txt"}
+{"text": "Der wichtigste Punkt ist: from k4n0n3 import LayerManager"}
+{"text": "Zusammenfassung: Tracks VRAM usage and handles LRU eviction."}
+{"text": "Frage: Was macht K4N0N3? Antwort: Low-level API for manual hook management on any `nn.Module`."}
+{"text": "Der wichtigste Punkt ist: prefetched** to overlap transfer with computation."}
+{"text": "Der wichtigste Punkt ist: Transparent **layer-level CPU/GPU offloading** for Hugging Face models. Run large"}
+{"text": "Der wichtigste Punkt ist: from k4n0n3 import ZeroFlushModel"}
+{"text": "Der wichtigste Punkt ist: \"mistralai/Mistral-7B-Instruct-v0.1\","}
+{"text": "Zusammenfassung: Tracks VRAM usage and handles LRU eviction."}
+{"text": "Notiz: GPT-2, Falcon, BLOOM, Gemma, Phi, Qwen2, and more"}
+{"text": "Frage: Was macht K4N0N3? Antwort: GPT-2, Falcon, BLOOM, Gemma, Phi, Qwen2, and more"}
+{"text": "Notiz: LLMs on limited VRAM — no manual `.to(\"cuda\")` calls needed."}
+{"text": "Frage: Was macht K4N0N3? Antwort: LLMs on limited VRAM — no manual `.to(\"cuda\")` calls needed."}
+{"text": "Dokumentation: Tracks VRAM usage and handles LRU eviction."}
+{"text": "Zusammenfassung: Simple tensor wrapper with device tracking (no `torch.Tensor` subclass)."}
+{"text": "Dokumentation: LLMs on limited VRAM — no manual `.to(\"cuda\")` calls needed."}
+{"text": "Zusammenfassung: K4N0N3 registers **forward hooks** on every transformer layer. Before a layer"}
+{"text": "Dokumentation: K4N0N3 registers **forward hooks** on every transformer layer. Before a layer"}
+{"text": "Zusammenfassung: K4N0N3 registers **forward hooks** on every transformer layer. Before a layer"}
+{"text": "Frage: Was macht K4N0N3? Antwort: Low-level API for manual hook management on any `nn.Module`."}
+{"text": "Dokumentation: pip install -r requirements.txt"}
+{"text": "Dokumentation: LLMs on limited VRAM — no manual `.to(\"cuda\")` calls needed."}
+{"text": "Der wichtigste Punkt ist: K4N0N3 registers **forward hooks** on every transformer layer. Before a layer"}
+{"text": "Notiz: Simple tensor wrapper with device tracking (no `torch.Tensor` subclass)."}
+{"text": "Zusammenfassung: from k4n0n3 import ZeroFlushModel"}
+{"text": "Zusammenfassung: print(model.generate(\"Explain quantum computing in simple terms.\", max_length=100))"}
+{"text": "Der wichtigste Punkt ist: from k4n0n3 import ZeroFlushModel"}
+{"text": "Notiz: back to CPU. While the current layer runs, upcoming layers are **asynchronously"}
+{"text": "Notiz: manager = LayerManager(model, layer_prefix=\"model.layers\", vram_budget_mb=2048)"}
+{"text": "Frage: Was macht K4N0N3? Antwort: K4N0N3 registers **forward hooks** on every transformer layer. Before a layer"}
+{"text": "Dokumentation: manager = LayerManager(model, layer_prefix=\"model.layers\", vram_budget_mb=2048)"}
+{"text": "Frage: Was macht K4N0N3? Antwort: executes, its parameters are moved to GPU. After execution, they are offloaded"}
+{"text": "Dokumentation: GPT-2, Falcon, BLOOM, Gemma, Phi, Qwen2, and more"}
+{"text": "Zusammenfassung: from k4n0n3 import ZeroFlushModel"}
+{"text": "Frage: Was macht K4N0N3? Antwort: Main entry point. Wraps a Hugging Face model."}
+{"text": "Notiz: pip install -r requirements.txt"}
+{"text": "Zusammenfassung: \"mistralai/Mistral-7B-Instruct-v0.1\","}
+{"text": "Dokumentation: manager = LayerManager(model, layer_prefix=\"model.layers\", vram_budget_mb=2048)"}
+{"text": "Dokumentation: \"mistralai/Mistral-7B-Instruct-v0.1\","}
+{"text": "Frage: Was macht K4N0N3? Antwort: Simple tensor wrapper with device tracking (no `torch.Tensor` subclass)."}
+{"text": "Frage: Was macht K4N0N3? Antwort: \"mistralai/Mistral-7B-Instruct-v0.1\","}
+{"text": "Notiz: back to CPU. While the current layer runs, upcoming layers are **asynchronously"}
+{"text": "Frage: Was macht K4N0N3? Antwort: executes, its parameters are moved to GPU. After execution, they are offloaded"}
+{"text": "Notiz: back to CPU. While the current layer runs, upcoming layers are **asynchronously"}
+{"text": "Dokumentation: \"mistralai/Mistral-7B-Instruct-v0.1\","}
+{"text": "Notiz: GPT-2, Falcon, BLOOM, Gemma, Phi, Qwen2, and more"}
+{"text": "Notiz: GPT-2, Falcon, BLOOM, Gemma, Phi, Qwen2, and more"}
+{"text": "Der wichtigste Punkt ist: Simple tensor wrapper with device tracking (no `torch.Tensor` subclass)."}
+{"text": "Frage: Was macht K4N0N3? Antwort: from k4n0n3 import ZeroFlushModel"}
+{"text": "Der wichtigste Punkt ist: K4N0N3 registers **forward hooks** on every transformer layer. Before a layer"}
+{"text": "Frage: Was macht K4N0N3? Antwort: from k4n0n3 import ZeroFlushModel"}
+{"text": "Notiz: Transparent **layer-level CPU/GPU offloading** for Hugging Face models. Run large"}
+{"text": "Notiz: back to CPU. While the current layer runs, upcoming layers are **asynchronously"}
+{"text": "Der wichtigste Punkt ist: prefetched** to overlap transfer with computation."}
+{"text": "Dokumentation: from k4n0n3 import LayerManager"}
+{"text": "Frage: Was macht K4N0N3? Antwort: Transparent **layer-level CPU/GPU offloading** for Hugging Face models. Run large"}
+{"text": "Zusammenfassung: K4N0N3 registers **forward hooks** on every transformer layer. Before a layer"}
+{"text": "Notiz: LLMs on limited VRAM — no manual `.to(\"cuda\")` calls needed."}
+{"text": "Der wichtigste Punkt ist: back to CPU. While the current layer runs, upcoming layers are **asynchronously"}
+{"text": "Frage: Was macht K4N0N3? Antwort: back to CPU. While the current layer runs, upcoming layers are **asynchronously"}
+{"text": "Notiz: \"mistralai/Mistral-7B-Instruct-v0.1\","}
+{"text": "Notiz: LLMs on limited VRAM — no manual `.to(\"cuda\")` calls needed."}
+{"text": "Zusammenfassung: GPT-2, Falcon, BLOOM, Gemma, Phi, Qwen2, and more"}
+{"text": "Notiz: executes, its parameters are moved to GPU. After execution, they are offloaded"}
+{"text": "Dokumentation: from k4n0n3 import LayerManager"}
+{"text": "Zusammenfassung: back to CPU. While the current layer runs, upcoming layers are **asynchronously"}
+{"text": "Zusammenfassung: prefetched** to overlap transfer with computation."}
+{"text": "Frage: Was macht K4N0N3? Antwort: from k4n0n3 import LayerManager"}
+{"text": "Notiz: prefetched** to overlap transfer with computation."}
+{"text": "Zusammenfassung: from k4n0n3 import LayerManager"}
+{"text": "Zusammenfassung: from k4n0n3 import ZeroFlushModel"}
+{"text": "Der wichtigste Punkt ist: executes, its parameters are moved to GPU. After execution, they are offloaded"}
+{"text": "Der wichtigste Punkt ist: LLMs on limited VRAM — no manual `.to(\"cuda\")` calls needed."}
+{"text": "Zusammenfassung: pip install -r requirements.txt"}
+{"text": "Notiz: manager = LayerManager(model, layer_prefix=\"model.layers\", vram_budget_mb=2048)"}
+{"text": "Zusammenfassung: \"mistralai/Mistral-7B-Instruct-v0.1\","}
+{"text": "Frage: Was macht K4N0N3? Antwort: pip install -r requirements.txt"}
+{"text": "Der wichtigste Punkt ist: GPT-2, Falcon, BLOOM, Gemma, Phi, Qwen2, and more"}
+{"text": "Notiz: print(model.generate(\"Explain quantum computing in simple terms.\", max_length=100))"}
+{"text": "Notiz: K4N0N3 registers **forward hooks** on every transformer layer. Before a layer"}
