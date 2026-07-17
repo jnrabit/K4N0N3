@@ -122,6 +122,37 @@ def test_int4_mechanik_offload_vs_full_gpu_identisch():
     assert torch.equal(y_offload, y_full)
 
 
+# -- O: Pin-Budget (Zwei-Pass + Per-Layer-Reprobe) ---------------------------
+
+
+def test_can_pin_fraction_zero_forces_unpinned():
+    model = HalfTransformer()
+    mgr = LayerManager(model, layer_prefix="model.layers", pin_ram_fraction=0.0)
+    assert mgr._can_pin(1) is False
+    assert not any(mgr._pinned.values())
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="No CUDA available")
+def test_quantized_two_pass_pins_with_fresh_budget(monkeypatch):
+    """O1: Budget wird nach der Quantisierung geprobt, nicht davor."""
+    import k4n0n3.hooks as hooks_mod
+
+    probes = []
+
+    real = hooks_mod._available_ram_bytes
+
+    def tracking_probe():
+        probes.append(True)
+        return real()
+
+    monkeypatch.setattr(hooks_mod, "_available_ram_bytes", tracking_probe)
+    model = HalfTransformer(num_layers=4)
+    mgr = LayerManager(model, layer_prefix="model.layers", quantize_transfer=True)
+    # Per-Layer-Reprobe: eine Probe pro Layer (Pass 2), nicht eine einzige
+    assert len(probes) == 4
+    assert all(mgr._pinned.values())  # Winz-Modell muss komplett pinnbar sein
+
+
 # -- LayerManager-Integration ------------------------------------------------
 
 

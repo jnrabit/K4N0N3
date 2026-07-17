@@ -192,33 +192,49 @@ class LayerManager:
 
     # -- G+H: pinned/pageable master copies (partial pinning) ----------------
 
+    def _can_pin(self, layer_bytes: int) -> bool:
+        """O2: MemAvailable vor JEDER Pin-Entscheidung frisch lesen.
+
+        Die fruehere Einmal-Probe beim Master-Aufbau hat das Budget in einem
+        Moment gemessen, in dem der RAM-Zustand nicht dem Endzustand entsprach
+        (z. B. fp16-Originale noch nicht freigegeben). Ein /proc-Read pro
+        Layer ist vernachlaessigbar.
+        """
+        if self._pin_ram_fraction <= 0.0:
+            return False
+        avail = _available_ram_bytes()
+        return avail > 0 and layer_bytes <= int(avail * self._pin_ram_fraction)
+
     def _build_master_copies(self) -> None:
         """Build CPU master copies — pinned where budget allows, pageable (zero-copy) otherwise."""
-        avail = _available_ram_bytes()
-        pin_budget = int(avail * self._pin_ram_fraction) if avail > 0 else 0
-        total_pinned_bytes = 0
+        if self._quantize_transfer:
+            # O1 Pass 1: ALLE Layer quantisieren; die fp16-Originale werden
+            # dabei layerweise freigegeben (p.data zeigt auf den Quant-Master).
+            for name in self._layer_list:
+                master, pref, _ = self._build_quantized_master(self._layers[name])
+                self._cpu_master[name] = master
+                self._param_refs[name] = pref
+                self._pinned[name] = False
+            import gc
+            gc.collect()
+            # O1 Pass 2: Pinnen mit frisch geprobtem Budget — jetzt entspricht
+            # der RAM-Zustand dem Endzustand (fp16 weg, nur Quant-Master da).
+            for name in self._layer_list:
+                master = self._cpu_master[name]
+                layer_bytes = sum(_entry_bytes(e) for e in master.values())
+                if self._can_pin(layer_bytes) and _pin_master_inplace(
+                        self._layers[name], master, self._param_refs[name]):
+                    self._pinned[name] = True
+            self._log_pinning()
+            return
 
         for name in self._layer_list:
             mod = self._layers[name]
-
-            if self._quantize_transfer:
-                master, pref, layer_bytes = self._build_quantized_master(mod)
-                can_pin = layer_bytes <= pin_budget and self._pin_ram_fraction > 0.0
-                if can_pin and _pin_master_inplace(mod, master, pref):
-                    pin_budget -= layer_bytes
-                    total_pinned_bytes += layer_bytes
-                    self._pinned[name] = True
-                else:
-                    self._pinned[name] = False
-                self._cpu_master[name] = master
-                self._param_refs[name] = pref
-                continue
-
             master: dict[str, torch.Tensor] = {}
             pref: dict[str, torch.nn.Parameter] = {}
             layer_bytes = sum(p.numel() * p.element_size() for p in mod.parameters())
 
-            can_pin = layer_bytes <= pin_budget and self._pin_ram_fraction > 0.0
+            can_pin = self._can_pin(layer_bytes)
 
             if can_pin:
                 pinned_ok = True
@@ -241,8 +257,6 @@ class LayerManager:
                         mod._buffers[bname] = pinned_b
                         master[bname] = pinned_b
                     if pinned_ok:
-                        pin_budget -= layer_bytes
-                        total_pinned_bytes += layer_bytes
                         self._pinned[name] = True
                         self._cpu_master[name] = master
                         self._param_refs[name] = pref
@@ -258,18 +272,23 @@ class LayerManager:
             self._cpu_master[name] = master
             self._param_refs[name] = pref
 
-        if self.verbose:
-            n_pinned = sum(1 for v in self._pinned.values() if v)
-            n_total = len(self._layer_list)
-            total_mb = sum(p.numel() * p.element_size() for p in self.model.parameters()) / 1024**2
-            pinned_mb = sum(
-                sum(_entry_bytes(t) for t in d.values())
-                for n, d in self._cpu_master.items() if self._pinned.get(n, False)
-            ) / 1024**2
-            print(f"[K4N0N3] Pinned {n_pinned}/{n_total} layers "
-                  f"({pinned_mb:.0f}/{total_mb:.0f} MB), "
-                  f"pin budget {self._pin_ram_fraction*100:.0f}% RAM"
-                  + (" | quantize_transfer=int8" if self._quantize_transfer else ""))
+        self._log_pinning()
+
+    def _log_pinning(self) -> None:
+        if not self.verbose:
+            return
+        n_pinned = sum(1 for v in self._pinned.values() if v)
+        n_total = len(self._layer_list)
+        total_mb = sum(p.numel() * p.element_size() for p in self.model.parameters()) / 1024**2
+        pinned_mb = sum(
+            sum(_entry_bytes(t) for t in d.values())
+            for n, d in self._cpu_master.items() if self._pinned.get(n, False)
+        ) / 1024**2
+        print(f"[K4N0N3] Pinned {n_pinned}/{n_total} layers "
+              f"({pinned_mb:.0f}/{total_mb:.0f} MB), "
+              f"pin fraction {self._pin_ram_fraction*100:.0f}% (per-layer reprobe)"
+              + (f" | quantize_transfer={self._quantize_transfer}"
+                 if self._quantize_transfer else ""))
 
     def _build_quantized_master(self, mod: torch.nn.Module) -> tuple[dict, dict, int]:
         """M1: Linear-Weights → int8-Master {"q","scale"}; alles andere direkte Master.
