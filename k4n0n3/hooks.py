@@ -192,6 +192,13 @@ class LayerManager:
 
     # -- G+H: pinned/pageable master copies (partial pinning) ----------------
 
+    #: Pinnen stoppt, bevor MemAvailable unter diesen Rest faellt. Ohne Floor
+    #: pinnt der Per-Layer-Reprobe im fp16-Fall das System in Swap-Hunger:
+    #: jede Probe sieht avail*fraction > layer_bytes, bis nichts mehr frei ist —
+    #: gepinnte Seiten sind unswappbar, der Rest des Systems thrasht
+    #: (empirisch: 14 % Memory-Stall, GPU idle, Messwerte unbrauchbar).
+    PIN_RAM_FLOOR_BYTES: int = 1536 * 1024 * 1024
+
     def _can_pin(self, layer_bytes: int) -> bool:
         """O2: MemAvailable vor JEDER Pin-Entscheidung frisch lesen.
 
@@ -203,7 +210,11 @@ class LayerManager:
         if self._pin_ram_fraction <= 0.0:
             return False
         avail = _available_ram_bytes()
-        return avail > 0 and layer_bytes <= int(avail * self._pin_ram_fraction)
+        if avail <= 0:
+            return False
+        if avail - layer_bytes < self.PIN_RAM_FLOOR_BYTES:
+            return False
+        return layer_bytes <= int(avail * self._pin_ram_fraction)
 
     def _build_master_copies(self) -> None:
         """Build CPU master copies — pinned where budget allows, pageable (zero-copy) otherwise."""
