@@ -1,0 +1,74 @@
+{
+  "training": true,
+  "config": {
+    "model": "Qwen/Qwen2.5-3B",
+    "steps": 3,
+    "seq_len": 256,
+    "budget_mb": 3072,
+    "lr": 0.001,
+    "r": 8,
+    "quantize_transfer": "int8",
+    "grad_checkpointing": true,
+    "tag": "smoke_ckpt"
+  },
+  "git_commit": "0b7a32a2f871efda16f232971a2fce57afcd0c45",
+  "timestamp": "2026-07-18T06:13:01",
+  "n_adapter_params": 1843200,
+  "loss_curve": [
+    4.1728,
+    3.6509,
+    5.6547
+  ],
+  "loss_median_first10": 4.1728,
+  "loss_median_last10": 4.1728,
+  "step_time_ms_median": 2845.4,
+  "step_times_ms": [
+    3035.4,
+    2107.1,
+    2845.4
+  ],
+  "vram_peak_mb": 1472.6,
+  "vram_budget_mb": 3072,
+  "greedy_with_adapters": [
+    730,
+    19,
+    45,
+    15,
+    45,
+    18,
+    5999,
+    4368,
+    730,
+    3571,
+    436,
+    44236,
+    11,
+    6616,
+    7219,
+    2694
+  ],
+  "greedy_without_adapters": [
+    730,
+    19,
+    45,
+    15,
+    45,
+    18,
+    5999,
+    4368,
+    730,
+    59391,
+    50095,
+    1333,
+    613,
+    6433,
+    89,
+    12
+  ],
+  "criteria": {
+    "steps_completed": true,
+    "loss_falls": false,
+    "vram_within_budget": true,
+    "adapters_change_output": true
+  }
+}
