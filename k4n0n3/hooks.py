@@ -45,7 +45,7 @@ def dequantize_int8(q: torch.Tensor, scale: torch.Tensor) -> torch.Tensor:
 
 
 def quantize_groupwise_int4(
-    w: torch.Tensor, group_size: int = 128
+    w: torch.Tensor, group_size: int = 64
 ) -> tuple[torch.Tensor, torch.Tensor, dict]:
     """Symmetrisch, group-wise entlang der Input-Dimension (P1).
 
@@ -129,7 +129,7 @@ class LayerManager:
         verbose: bool = False,
         pin_ram_fraction: float = 0.7,
         quantize_transfer: bool | str = False,
-        int4_group_size: int = 128,
+        int4_group_size: int = 64,
     ):
         self.model = model
         self._int4_group_size = int4_group_size

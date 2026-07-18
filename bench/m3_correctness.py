@@ -73,7 +73,7 @@ def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--model", default="Qwen/Qwen2.5-3B")
     p.add_argument("--quant", choices=["int8", "int4"], default="int8")
-    p.add_argument("--int4-group-size", type=int, default=128)
+    p.add_argument("--int4-group-size", type=int, default=64)
     p.add_argument("--skip-fp16-logits", action="store_true",
                    help="Phase 1 (fp16-Forward fuer Logit-Diff) ueberspringen")
     args = p.parse_args()

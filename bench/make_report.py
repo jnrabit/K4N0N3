@@ -190,12 +190,23 @@ def main() -> None:
         "| Variante | Mechanik (mit=ohne Offload) | Divergenz ab Token | mittl. \\|Logit-Diff\\| Token 1 |",
         "|---|---|---|---|",
     ]
+    # int4-m3-Laeufe ohne int4_group_size-Feld (Arg kam erst spaeter dazu):
+    # vor dem P-Commit (d8ef94a, 2026-07-17 ~19:05) lief per-channel-Code,
+    # danach group-wise mit Default g=128 — Zuordnung ueber den Timestamp.
+    GROUPWISE_CODE_TS = "2026-07-17T19:05:00"
     m3_by_key: dict[str, dict] = {}
     for m in m3s:
         quant = m.get("quant", "int8")
-        key = quant if quant != "int4" else f"int4-g{m.get('int4_group_size') or '?'}"
+        if quant != "int4":
+            key = quant
+        elif m.get("int4_group_size"):
+            key = f"int4-g{m['int4_group_size']}"
+        elif m.get("timestamp", "") >= GROUPWISE_CODE_TS:
+            key = "int4-g128"
+        else:
+            key = "int4-per-channel"
         m3_by_key[key] = m  # neuester gewinnt
-    for key in ("int8", "int4-g?", "int4-g128", "int4-g64"):
+    for key in ("int8", "int4-per-channel", "int4-g128", "int4-g64"):
         m = m3_by_key.get(key)
         if not m:
             continue
@@ -203,7 +214,7 @@ def main() -> None:
         mech_txt = {True: "identisch ✓", False: "**ABWEICHUNG**", None: "nicht messbar"}[mech]
         div = m.get("divergenz_vs_fp16_ab_token")
         div_txt = "keine (32/32)" if (div is not None and div >= 32) else fmt(div, 0)
-        label = "int4-per-channel (M5)" if key == "int4-g?" else key
+        label = "int4-per-channel (M5)" if key == "int4-per-channel" else key
         lines.append(f"| {label} | {mech_txt} | {div_txt} "
                      f"| {fmt(m.get('mean_abs_logit_diff_first_token'), 4)} |")
     if not m3_by_key:
@@ -266,13 +277,17 @@ def main() -> None:
             f"{tok_s_cell(fp16)}) — Mechanik-Korrektheit und Offload-Wirksamkeit "
             f"mit Messwerten belegt."
         )
-    if int4_128:
-        m4 = m3_by_key.get("int4-g128")
-        div = m4.get("divergenz_vs_fp16_ab_token") if m4 else None
+    int4_64 = latest.get("int4-g64 (group-wise)")
+    if int4_128 and int4_64:
+        div128 = (m3_by_key.get("int4-g128") or {}).get("divergenz_vs_fp16_ab_token")
+        div64 = (m3_by_key.get("int4-g64") or {}).get("divergenz_vs_fp16_ab_token")
         can.append(
-            f"- int4-g128 liefert {fmt(int4_128['warm_forward_ms']['median'])} ms / "
-            f"{tok_s_cell(int4_128)} tok/s, divergiert aber ab Token {fmt(div, 0)} "
-            f"von fp16 — Tempo ja, Qualitaets-Gate nein (Details Qualitaetstabelle)."
+            f"- int4 group-wise: g=64 besteht das Qualitaets-Gate "
+            f"(Divergenz ab Token {fmt(div64, 0)} > 16) bei "
+            f"{fmt(int4_64['warm_forward_ms']['median'])} ms / {tok_s_cell(int4_64)} tok/s; "
+            f"g=128 ist minimal schneller ({fmt(int4_128['warm_forward_ms']['median'])} ms), "
+            f"divergiert aber ab Token {fmt(div128, 0)} — Empfehlung: g=64 als Default, "
+            f"wenn int4 genutzt wird."
         )
     if trainings and all(trainings[-1].get("criteria", {}).values()):
         can.append(

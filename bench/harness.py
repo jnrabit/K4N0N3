@@ -267,7 +267,7 @@ def main() -> None:
                    choices=["int8", "int4"], default=False,
                    help="Custom weight-only Quant-Master + On-GPU-Dequant "
                         "(Auftrag M; 'int4' = group-wise gepackt, Auftrag P)")
-    p.add_argument("--int4-group-size", type=int, default=128)
+    p.add_argument("--int4-group-size", type=int, default=64)
     p.add_argument("--max-new-tokens", type=int, default=32)
     p.add_argument("--generate-timeout-s", type=float, default=600.0)
     p.add_argument("--tag", default="", help="Zusatz-Suffix fuer den Dateinamen")

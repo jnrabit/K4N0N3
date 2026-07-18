@@ -48,7 +48,7 @@ class TrainingManager(LayerManager):
         verbose: bool = False,
         pin_ram_fraction: float = 0.7,
         quantize_transfer: bool | str = False,
-        int4_group_size: int = 128,
+        int4_group_size: int = 64,
     ):
         self._phase = "fw"
         super().__init__(
