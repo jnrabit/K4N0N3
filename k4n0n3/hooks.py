@@ -114,6 +114,11 @@ class LayerManager:
     GPU-VRAM — der MemoryManager bucht weiterhin die fp16-GPU-Groesse.
     """
 
+    #: Q1: Wenn True (TrainingManager), bekommen trainierbare Params
+    #: (requires_grad=True, d. h. Adapter) keinen Master-Eintrag — sie werden
+    #: nie gedroppt/hochgeladen und bleiben permanent auf der GPU.
+    _skip_trainable: bool = False
+
     def __init__(
         self,
         model: torch.nn.Module,
@@ -286,6 +291,8 @@ class LayerManager:
             if can_pin:
                 pinned_ok = True
                 for pname, param in mod.named_parameters():
+                    if self._skip_trainable and param.requires_grad:
+                        continue
                     try:
                         pinned = param.detach().to("cpu").pin_memory()
                     except RuntimeError:
@@ -312,6 +319,8 @@ class LayerManager:
             # Pageable fallback — G: zero-copy, original IS the master
             self._pinned[name] = False
             for pname, param in mod.named_parameters():
+                if self._skip_trainable and param.requires_grad:
+                    continue
                 master[pname] = param.data  # reference, no clone
                 pref[pname] = param
             for bname, buf in mod.named_buffers():
@@ -354,6 +363,8 @@ class LayerManager:
         master: dict = {}
         pref: dict[str, torch.nn.Parameter] = {}
         for pname, param in mod.named_parameters():
+            if self._skip_trainable and param.requires_grad:
+                continue
             if pname in linear_weights and param.dim() == 2:
                 if self._quantize_transfer == "int4" and param.shape[1] % 2 == 0:
                     packed, scale, meta = quantize_groupwise_int4(
