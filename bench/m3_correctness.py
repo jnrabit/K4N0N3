@@ -73,6 +73,7 @@ def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--model", default="Qwen/Qwen2.5-3B")
     p.add_argument("--quant", choices=["int8", "int4"], default="int8")
+    p.add_argument("--int4-group-size", type=int, default=128)
     p.add_argument("--skip-fp16-logits", action="store_true",
                    help="Phase 1 (fp16-Forward fuer Logit-Diff) ueberspringen")
     args = p.parse_args()
@@ -80,6 +81,7 @@ def main() -> None:
     result: dict = {
         "m3": True,
         "quant": args.quant,
+        "int4_group_size": args.int4_group_size if args.quant == "int4" else None,
         "model": args.model,
         "git_commit": _git_commit(),
         "timestamp": datetime.now().isoformat(timespec="seconds"),
@@ -101,7 +103,8 @@ def main() -> None:
 
     # Phase 2: int8-custom mit Offloading
     log("Phase 2: int8-custom, greedy MIT Offloading...")
-    zfm = ZeroFlushModel(args.model, quantize_transfer=args.quant)
+    zfm = ZeroFlushModel(args.model, quantize_transfer=args.quant,
+                         int4_group_size=args.int4_group_size)
     zfm.prepare()  # Embeddings/Norm/Head auf GPU — auch wenn Phase 1 uebersprungen wurde
     if fp16_logits is not None:
         int8_logits = last_token_logits(zfm)
