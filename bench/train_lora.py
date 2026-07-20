@@ -121,14 +121,35 @@ class LoRALinear(torch.nn.Module):
         return out + delta.to(out.dtype)
 
 
-def wrap_lora(model, r: int) -> list[torch.nn.Parameter]:
-    adapters = []
-    for layer in model.model.layers:
-        for attr in ("q_proj", "v_proj"):
-            base = getattr(layer.self_attn, attr)
+# Ziel-Module je Layer. q_proj/v_proj gibt es nur in Full-Attention-Layern;
+# Qwen3.5 ist hybrid (24 von 32 Layern sind linear_attention und haben
+# stattdessen linear_attn.in_proj_qkv). Wer nur q/v adressiert, trifft dort
+# 8 von 32 Layern — deshalb Suffix-Liste statt fester self_attn-Pfad.
+DEFAULT_LORA_TARGETS = ("q_proj", "v_proj", "in_proj_qkv")
+
+
+def wrap_lora(model, r: int,
+              targets: tuple[str, ...] = DEFAULT_LORA_TARGETS) -> list[torch.nn.Parameter]:
+    """Wickelt jedes nn.Linear, dessen Attributname in targets steht.
+
+    Läuft über named_modules statt über model.model.layers[i].self_attn, damit
+    abweichende Architekturen (hybride Attention, andere Container-Namen) nicht
+    mit AttributeError abbrechen."""
+    adapters: list[torch.nn.Parameter] = []
+    hits: dict[str, int] = {}
+    for parent in [m for _, m in model.named_modules()]:
+        for attr in targets:
+            base = getattr(parent, attr, None)
+            if not isinstance(base, torch.nn.Linear):
+                continue
             wrapped = LoRALinear(base, r=r)
-            setattr(layer.self_attn, attr, wrapped)
+            setattr(parent, attr, wrapped)
             adapters += [wrapped.lora_A, wrapped.lora_B]
+            hits[attr] = hits.get(attr, 0) + 1
+    if not adapters:
+        raise SystemExit(f"Kein LoRA-Ziel gefunden (gesucht: {targets}). "
+                         f"Modellstruktur pruefen.")
+    print(f"LoRA-Ziele: {hits}")
     return adapters
 
 
@@ -180,6 +201,8 @@ def main() -> None:
     p.add_argument("--budget-mb", type=int, default=3072)
     p.add_argument("--lr", type=float, default=1e-3)
     p.add_argument("--r", type=int, default=8)
+    p.add_argument("--lora-targets", default=",".join(DEFAULT_LORA_TARGETS),
+                   help="Komma-Liste der Modul-Attributnamen fuer LoRA")
     p.add_argument("--quantize-transfer", nargs="?", const="int8",
                    choices=["int8", "int4"], default=False)
     p.add_argument("--grad-checkpointing", action="store_true")
@@ -218,7 +241,8 @@ def main() -> None:
     # Basis komplett einfrieren — Pflicht fuer Drop-Offload (Q1-Guard prueft das)
     for param in model.parameters():
         param.requires_grad_(False)
-    adapters = wrap_lora(model, args.r)
+    adapters = wrap_lora(model, args.r,
+                         tuple(t.strip() for t in args.lora_targets.split(",") if t.strip()))
     n_adapter_params = sum(a.numel() for a in adapters)
 
     if args.grad_checkpointing:
