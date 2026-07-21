@@ -1,0 +1,200 @@
+{
+  "eval": true,
+  "config": {
+    "model": "empero-ai/Qwythos-9B-Claude-Mythos-5-1M",
+    "adapter": "bench/checkpoints/lora_qwythos_noneg.pt",
+    "data": "/home/jnrabit/collect2/data/traces/curated/eval_set.jsonl",
+    "max_new": 64,
+    "budget_mb": 2048,
+    "quantize_transfer": "int4",
+    "no_thinking": true,
+    "limit": 0,
+    "self_test": false,
+    "tag": "qwythos_noneg"
+  },
+  "git_commit": "a6735a59b39650be8223be2ba952c2e76241abbc",
+  "timestamp": "2026-07-21T07:52:05",
+  "n_examples": 10,
+  "runs": {
+    "mit_adapter": {
+      "summary": {
+        "n": 10,
+        "token_f1_median": 0.752,
+        "anchor_kept": "9/10",
+        "anchor_rate": 0.9
+      },
+      "rows": [
+        {
+          "trace_id": "0983d1df085c63a7",
+          "follow_up": "und wie skaliert das?",
+          "reference": "Wie skaliert Rate-Limiting mit einem Sliding-Window?",
+          "prediction": "Wie skaliert Rate-Limiting mit einem Sliding-Window?",
+          "token_f1": 1.0,
+          "keeps_anchor": true
+        },
+        {
+          "trace_id": "2f32d797925cb980",
+          "follow_up": "und bei nur einem Consumer?",
+          "reference": "Wie funktioniert Kafka-Partitionierung, wenn es nur einen Consumer gibt?",
+          "prediction": "Wie funktioniert Kafka-Partitionierung bei nur einem Consumer?",
+          "token_f1": 0.667,
+          "keeps_anchor": true
+        },
+        {
+          "trace_id": "5ff2f0bbc295ef61",
+          "follow_up": "worin unterscheidet es sich von Greedy?",
+          "reference": "Worin unterscheidet sich Beam-Search von Greedy bei der Textgenerierung?",
+          "prediction": "Was ist der Unterschied zwischen Beam-Search und Greedy-Search bei der Textgenerierung?",
+          "token_f1": 0.522,
+          "keeps_anchor": true
+        },
+        {
+          "trace_id": "74e31d0aea9c8c04",
+          "follow_up": "und wann einsetzen?",
+          "reference": "Wann sollte man Apache Spark verwenden?",
+          "prediction": "Wann sollte man Apache einsetzen?",
+          "token_f1": 0.727,
+          "keeps_anchor": true
+        },
+        {
+          "trace_id": "7d01ce65decae923",
+          "follow_up": "wofür nutzt man das?",
+          "reference": "Wofür wird HMAC verwendet?",
+          "prediction": "Wofür nutzt man HMAC?",
+          "token_f1": 0.5,
+          "keeps_anchor": true
+        },
+        {
+          "trace_id": "8af9c9307e92a26c",
+          "follow_up": "wie groß wird das?",
+          "reference": "Wie groß wird der KV-Cache bei der Textgenerierung?",
+          "prediction": "Wie groß wird der KV-Cache bei der Textgenerierung?",
+          "token_f1": 1.0,
+          "keeps_anchor": true
+        },
+        {
+          "trace_id": "b71416fd8003e70f",
+          "follow_up": "und wofür kann man das nutzen?",
+          "reference": "Wofür kann man Apache Spark nutzen?",
+          "prediction": "Wofür kann man Apache Spark nutzen?",
+          "token_f1": 1.0,
+          "keeps_anchor": true
+        },
+        {
+          "trace_id": "ca97f2c5cb7b16f5",
+          "follow_up": "und wie genau?",
+          "reference": "Wie genau funktioniert das TLS-Protokoll?",
+          "prediction": "Wie genau funktioniert TLS?",
+          "token_f1": 0.8,
+          "keeps_anchor": false
+        },
+        {
+          "trace_id": "dba40ca947cd734d",
+          "follow_up": "was ist mit dem Speicher?",
+          "reference": "Wie verändert sich der Speicherbedarf während des Trainings wenn Gradient-Checkpointing verwendet wird?",
+          "prediction": "Was ist der Speicherbedarf beim Gradient-Checkpointing?",
+          "token_f1": 0.4,
+          "keeps_anchor": true
+        },
+        {
+          "trace_id": "e994fe74749ec7ff",
+          "follow_up": "when does it blow up?",
+          "reference": "Under what conditions does a regex backtracking engine blow up?",
+          "prediction": "When does a regex backtracking engine blow up?",
+          "token_f1": 0.778,
+          "keeps_anchor": true
+        }
+      ]
+    },
+    "ohne_adapter": {
+      "summary": {
+        "n": 10,
+        "token_f1_median": 0.584,
+        "anchor_kept": "6/10",
+        "anchor_rate": 0.6
+      },
+      "rows": [
+        {
+          "trace_id": "0983d1df085c63a7",
+          "follow_up": "und wie skaliert das?",
+          "reference": "Wie skaliert Rate-Limiting mit einem Sliding-Window?",
+          "prediction": "und wie skaliert das?",
+          "token_f1": 0.333,
+          "keeps_anchor": false
+        },
+        {
+          "trace_id": "2f32d797925cb980",
+          "follow_up": "und bei nur einem Consumer?",
+          "reference": "Wie funktioniert Kafka-Partitionierung, wenn es nur einen Consumer gibt?",
+          "prediction": "Was passiert bei Kafka-Partitionierung, wenn nur ein Consumer vorhanden ist?",
+          "token_f1": 0.476,
+          "keeps_anchor": true
+        },
+        {
+          "trace_id": "5ff2f0bbc295ef61",
+          "follow_up": "worin unterscheidet es sich von Greedy?",
+          "reference": "Worin unterscheidet sich Beam-Search von Greedy bei der Textgenerierung?",
+          "prediction": "Unterscheidet sich Beam-Search bei der Textgenerierung von Greedy?",
+          "token_f1": 0.947,
+          "keeps_anchor": true
+        },
+        {
+          "trace_id": "74e31d0aea9c8c04",
+          "follow_up": "und wann einsetzen?",
+          "reference": "Wann sollte man Apache Spark verwenden?",
+          "prediction": "Wann sollte man Apache Spark einsetzen?",
+          "token_f1": 0.833,
+          "keeps_anchor": true
+        },
+        {
+          "trace_id": "7d01ce65decae923",
+          "follow_up": "wofür nutzt man das?",
+          "reference": "Wofür wird HMAC verwendet?",
+          "prediction": "wofür nutzt man HMAC",
+          "token_f1": 0.5,
+          "keeps_anchor": true
+        },
+        {
+          "trace_id": "8af9c9307e92a26c",
+          "follow_up": "wie groß wird das?",
+          "reference": "Wie groß wird der KV-Cache bei der Textgenerierung?",
+          "prediction": "Wie groß wird der KV-Cache bei der Textgenerierung?",
+          "token_f1": 1.0,
+          "keeps_anchor": true
+        },
+        {
+          "trace_id": "b71416fd8003e70f",
+          "follow_up": "und wofür kann man das nutzen?",
+          "reference": "Wofür kann man Apache Spark nutzen?",
+          "prediction": "und wofür kann man das nutzen?",
+          "token_f1": 0.667,
+          "keeps_anchor": false
+        },
+        {
+          "trace_id": "ca97f2c5cb7b16f5",
+          "follow_up": "und wie genau?",
+          "reference": "Wie genau funktioniert das TLS-Protokoll?",
+          "prediction": "und wie genau?",
+          "token_f1": 0.444,
+          "keeps_anchor": false
+        },
+        {
+          "trace_id": "dba40ca947cd734d",
+          "follow_up": "was ist mit dem Speicher?",
+          "reference": "Wie verändert sich der Speicherbedarf während des Trainings wenn Gradient-Checkpointing verwendet wird?",
+          "prediction": "was ist mit dem Speicher",
+          "token_f1": 0.0,
+          "keeps_anchor": false
+        },
+        {
+          "trace_id": "e994fe74749ec7ff",
+          "follow_up": "when does it blow up?",
+          "reference": "Under what conditions does a regex backtracking engine blow up?",
+          "prediction": "when does a regex backtracking engine blow up?",
+          "token_f1": 0.778,
+          "keeps_anchor": true
+        }
+      ]
+    }
+  }
+}
