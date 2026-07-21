@@ -71,9 +71,95 @@ def paired(ev: dict) -> tuple[int, int, int, list[str]]:
     return better, worse, same, details
 
 
+def _rescore(h: dict | None, data) -> dict:
+    """Gespeicherte Ausgaben gegen die AKTUELLE Falldefinition neu bewerten."""
+    from bench.eval_hard import load_cases, score
+    if not h:
+        return {}
+    cases = {c["id"]: c for c in load_cases(data)}
+    out = {}
+    for label, stored in h.get("runs", {}).items():
+        rows = stored.get("rows", [])
+        try:
+            out[label] = score([cases[r["id"]] for r in rows],
+                               [r["prediction"] for r in rows])
+        except KeyError:
+            out[label] = stored
+    return out
+
+
+def _holdout2_section(h_v2: dict | None, h_v3: dict | None) -> list[str]:
+    """Der zweite, VOR der Datensammlung festgeschriebene Holdout."""
+    from bench.eval_hard import HARD_DATA
+    data2 = HARD_DATA.parent / "eval_hard2.jsonl"
+    L = ["## Holdout 2: der unabhaengige Test", ""]
+    if not (h_v2 and h_v3):
+        return L + ["Nicht gemessen.", ""]
+    L += [
+        "Charge 4 (36 Paare) zielte gezielt auf die oben gemessenen "
+        "Schwaechen — damit misst `eval_hard.jsonl` nicht mehr "
+        "Generalisierung, sondern In-Distribution-Leistung. "
+        "`eval_hard2.jsonl` wurde deshalb **vor** der Datensammlung "
+        "geschrieben und in einem eigenen Commit festgeschrieben (durchgehend "
+        "andere Entitaeten und Domaenen). Das ist die unabhaengige Zahl.",
+        "",
+        "| Kategorie | ohne Adapter | v2 (41 Beisp.) | v3 (56 Beisp., Charge 4) |",
+        "|---|---|---|---|",
+    ]
+    r2, r3 = _rescore(h_v2, data2), _rescore(h_v3, data2)
+    ohne, m2, m3 = r2.get("ohne_adapter", {}), r2.get("mit_adapter", {}), r3.get("mit_adapter", {})
+    for kind in sorted(m2.get("per_kind", {})):
+        L.append(f"| {kind} | {ohne.get('per_kind', {}).get(kind, '—')} | "
+                 f"{m2.get('per_kind', {}).get(kind, '—')} | "
+                 f"{m3.get('per_kind', {}).get(kind, '—')} |")
+    L += [
+        f"| **gesamt** | **{ohne.get('strict_pass')}/{ohne.get('n')}** | "
+        f"**{m2.get('strict_pass')}/{m2.get('n')}** | "
+        f"{m3.get('strict_pass')}/{m3.get('n')} |",
+        "",
+        "### Befund: Charge 4 hat nichts gebracht",
+        "",
+        f"v3 ({m3.get('strict_pass')}/{m3.get('n')}) liegt unter v2 "
+        f"({m2.get('strict_pass')}/{m2.get('n')}). Der Unterschied ist "
+        "Rauschen, aber es gibt keinen Grund, v3 zu bevorzugen — und keinen, "
+        "die 36 zusaetzlichen Traces als Fortschritt auszuweisen. "
+        "**v2 bleibt der Adapter der Wahl.**",
+        "",
+        "Aufgeschluesselt: v3 gewinnt einen Distraktor-Fall "
+        "(`SSD- oder HDD-Speicher` → `eine SSD`), verliert aber je einen bei "
+        "tiefem Antezedenten und Kontrast. Das Distraktor-Training wirkt "
+        "also — nur zu schwach, um die Verwaesserung aufzuwiegen.",
+        "",
+        "**Warum es schiefging, steht in der Kuration:** von 14 gesammelten "
+        "Distraktor-Paaren ueberlebten **3**, weil qwen2.5:3b bei zwei "
+        "Entitaeten fast immer hedgt (beide nennt). Drei Beispiele gegen 56 "
+        "im Satz bewegen nichts, waehrend die 15 neuen Beispiele insgesamt "
+        "die Verteilung verschoben und zwei bestehende Faehigkeiten leicht "
+        "verwaesserten.",
+        "",
+        "**Die Lehre:** gezielt sammeln funktioniert nur, wenn das "
+        "Lehrer-Modell die Zielfaehigkeit selbst beherrscht. Aus einer "
+        "Quelle, die sich bei zwei Entitaeten nicht entscheiden kann, laesst "
+        "sich die Entscheidung nicht destillieren — dafuer braeuchte es ein "
+        "staerkeres Modell oder handgeschriebene Targets.",
+        "",
+        "**Korrektur zum Protokoll:** waehrend des Laufs wurde der Sprung "
+        "beim tiefen Antezedenten (0/4 → 3/4) zunaechst Charge 4 "
+        "zugeschrieben. Das war falsch — verglichen worden war gegen die "
+        "BASIS, nicht gegen v2. v2 hatte dort bereits 4/4, ganz ohne "
+        "Zwei-Turn-Trainingsdaten.",
+        "",
+    ]
+    return L
+
+
 def _hard_section(h: dict | None) -> list[str]:
     """Harter Eval — handgeschriebene Faelle mit Pro-Fall-Zusicherungen."""
-    L = ["## Harter Eval: 24 handgeschriebene Faelle", ""]
+    L = ["## Harter Eval 1: 24 handgeschriebene Faelle", "",
+         "*Achtung: Charge 4 wurde spaeter gezielt fuer die Kategorien dieses "
+         "Satzes gesammelt. Die Zahlen hier stammen aus der Messung DAVOR "
+         "(Adapter v2) und sind insofern noch unabhaengig; fuer alles danach "
+         "gilt „Holdout 2\" als Massstab.*", ""]
     if not h:
         return L + ["Nicht gemessen.", ""]
     # Neu bewerten statt die gespeicherte Zusammenfassung zu uebernehmen:
@@ -167,6 +253,8 @@ def main() -> None:
     e_v2 = by_tag(evals, "qwythos_v2")
     t_v2 = by_tag(trainings, "qwythos_v2")
     h_v2 = by_tag(hards, "v2")
+    h2_v2 = by_tag(hards, "v2_holdout2")
+    h2_v3 = by_tag(hards, "v3_holdout2")
 
     # v2-Verdikt aus den Zahlen ableiten, nicht behaupten
     if e_v2:
@@ -196,10 +284,16 @@ def main() -> None:
         "## Kernaussage",
         "",
         "Ein 9-Mrd.-Parameter-Modell wurde auf einer 8-GB-Karte per LoRA "
-        "finetuned und **verbessert die Zielaufgabe messbar**: im harten, "
-        "handgeschriebenen Eval **12/24 ohne gegen 21/24 mit Adapter**.",
+        "finetuned und **verbessert die Zielaufgabe messbar**: auf einem "
+        "unabhaengigen, vor der Datensammlung festgeschriebenen Testsatz "
+        "**13/24 ohne gegen 21/24 mit Adapter**.",
         "",
-        "Zwei Befunde waren dafuer noetig, beide gegen den ersten Anschein:",
+        "**Ergebnis-Artefakt ist `bench/checkpoints/lora_qwythos_v2.pt`** "
+        "(41 Trainingsbeispiele). Der spaetere v3 mit gezielt nachgesammelten "
+        "Daten (56 Beispiele) liegt mit 20/24 darunter — die Nachsammlung "
+        "brachte nichts, siehe „Holdout 2\".",
+        "",
+        "Drei Befunde waren dafuer noetig, alle gegen den ersten Anschein:",
         "",
         "1. **Die selbst erzeugten synthetischen Negativbeispiele haben den "
         "Finetune sabotiert.** Der erste Lauf sah aus wie „bringt nichts\"; "
@@ -209,6 +303,10 @@ def main() -> None:
         "2. **Die Loss taugt hier nicht zur Auswahl.** Der bessere Adapter hat "
         "die HOEHERE Endloss. Wer nach Loss ausgewaehlt haette, haette den "
         "schlechteren genommen.",
+        "3. **Mehr Daten sind nicht automatisch besser.** Gezielt gesammelte "
+        "Beispiele fuer die gemessenen Schwaechen haben das Ergebnis leicht "
+        "verschlechtert, weil das Lehrer-Modell die Zielfaehigkeit selbst "
+        "nicht beherrscht.",
         "",
         "## Eval: Rewrite-Qualitaet auf 10 zurueckgehaltenen Traces",
         "",
@@ -287,6 +385,7 @@ def main() -> None:
         *(det2 if e_v2 else []),
         "",
         *_hard_section(h_v2),
+        *_holdout2_section(h2_v2, h2_v3),
         "## Training: LoRA auf Qwythos-9B (Basis > VRAM)",
         "",
         "| | mit Negativen | ohne Negative |",
@@ -404,9 +503,15 @@ def main() -> None:
         "misst Verbesserung nur *auf dieser Verteilung*. Genau deshalb gibt "
         "es den harten Eval mit handgeschriebenen Faellen; dessen Zahlen sind "
         "die aussagekraeftigeren.",
-        "- **Der harte Eval ist von derselben Instanz geschrieben, die auch "
-        "die Kuration gemacht hat.** Gleiche blinde Flecken wirken in beiden "
-        "Richtungen; ein von aussen geschriebener Satz waere unabhaengiger.",
+        "- **Beide harten Evals sind von derselben Instanz geschrieben, die "
+        "auch kuriert und trainiert hat.** Gleiche blinde Flecken wirken in "
+        "beiden Richtungen. Die zeitliche Trennung (Holdout 2 vor der "
+        "Datensammlung festgeschrieben) schuetzt gegen nachtraegliches "
+        "Zurechtbiegen, nicht gegen geteilte Annahmen — ein von aussen "
+        "geschriebener Fallsatz waere der naechste Schritt.",
+        "- **Der Distraktor-Fall bleibt ungeloest.** 3/6 ohne Adapter, 3/6 mit "
+        "v2, 4/6 mit v3: die Faehigkeit, sich bei zwei Entitaeten zu "
+        "entscheiden, ist mit diesen Daten nicht antrainierbar.",
         "- **`token_f1` misst Formaehnlichkeit, nicht Korrektheit.** Der "
         "einzige verbleibende Ankerfehler des besseren Adapters ist "
         "`'Wie genau funktioniert TLS?'` gegen die Referenz "
@@ -420,8 +525,11 @@ def main() -> None:
         "",
         "| Datei | Inhalt |",
         "|---|---|",
-        "| `bench/checkpoints/lora_qwythos.pt` | Adapter mit synth. Negativen (13,9 MB) |",
-        "| `bench/checkpoints/lora_qwythos_noneg.pt` | Adapter ohne Negative — der wirksame |",
+        "| **`bench/checkpoints/lora_qwythos_v2.pt`** | **Ergebnis-Adapter** (41 Beispiele, 21/24) |",
+        "| `bench/checkpoints/lora_qwythos_v3.pt` | Charge-4-Variante (56 Beispiele, 20/24) — nicht besser |",
+        "| `bench/checkpoints/lora_qwythos.pt` | Adapter mit synth. Negativen — der Negativ-Befund |",
+        "| `bench/checkpoints/lora_qwythos_noneg.pt` | erster wirksamer Adapter (22 Beispiele) |",
+        "| `bench/data/eval_hard2.jsonl` | unabhaengiger Holdout, vor Charge 4 festgeschrieben |",
         "| `bench/eval_rewrite.py` | Trace-Eval (Adapter an/aus, gepaart) |",
         "| `bench/eval_hard.py` + `bench/data/eval_hard.jsonl` | harter Eval, 24 handgeschriebene Faelle |",
         "| `collect2: collect-traces build` | baut Trainings-/Eval-Satz reproduzierbar |",

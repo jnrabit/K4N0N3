@@ -1,0 +1,478 @@
+{
+  "eval": true,
+  "hard": true,
+  "config": {
+    "model": "empero-ai/Qwythos-9B-Claude-Mythos-5-1M",
+    "adapter": "bench/checkpoints/lora_qwythos_v3.pt",
+    "data": "bench/data/eval_hard2.jsonl",
+    "max_new": 48,
+    "budget_mb": 2048,
+    "quantize_transfer": "int4",
+    "no_thinking": true,
+    "limit": 0,
+    "self_test": false,
+    "tag": "v3_holdout2"
+  },
+  "git_commit": "1bd3ca6d4d0350c3aa0c02c93d26bd57b3fa398b",
+  "timestamp": "2026-07-21T21:48:14",
+  "runs": {
+    "mit_adapter": {
+      "n": 24,
+      "strict_pass": 20,
+      "strict_rate": 0.833,
+      "per_kind": {
+        "distraktor": "4/6",
+        "kein_dump": "2/2",
+        "kontrast": "3/4",
+        "sprache": "3/3",
+        "tiefer_antezedent": "3/4",
+        "unchanged": "5/5"
+      },
+      "violations": {
+        "antezedent": 2,
+        "kein_thread": 1,
+        "laenge": 1
+      },
+      "rows": [
+        {
+          "id": "h2-dist-01",
+          "kind": "distraktor",
+          "follow_up": "wie viele Verbindungen haelt das aus?",
+          "prediction": "Wie viele Verbindungen kann Nginx ausführen?",
+          "strict_pass": true,
+          "failed": []
+        },
+        {
+          "id": "h2-dist-02",
+          "kind": "distraktor",
+          "follow_up": "wie lange haelt das im Dauerbetrieb?",
+          "prediction": "Wie lange hält eine SSD im Dauerbetrieb?",
+          "strict_pass": true,
+          "failed": []
+        },
+        {
+          "id": "h2-dist-03",
+          "kind": "distraktor",
+          "follow_up": "warum ist das fehleranfaellig?",
+          "prediction": "Warum ist das fehleranfällig?",
+          "strict_pass": false,
+          "failed": [
+            "antezedent"
+          ]
+        },
+        {
+          "id": "h2-dist-04",
+          "kind": "distraktor",
+          "follow_up": "wie funktioniert das ohne Netzverbindung?",
+          "prediction": "Wie funktioniert Git ohne Netzverbindung?",
+          "strict_pass": true,
+          "failed": []
+        },
+        {
+          "id": "h2-dist-05",
+          "kind": "distraktor",
+          "follow_up": "wie verhindert man da zu teure Abfragen?",
+          "prediction": "Wie verhindert man zu teure Abfragen bei GraphQL?",
+          "strict_pass": true,
+          "failed": []
+        },
+        {
+          "id": "h2-dist-06",
+          "kind": "distraktor",
+          "follow_up": "wie teuer ist da ein Wechsel?",
+          "prediction": "Wie teuer ist ein Wechsel zwischen Threads und Prozessen?",
+          "strict_pass": false,
+          "failed": [
+            "kein_thread"
+          ]
+        },
+        {
+          "id": "h2-unch-01",
+          "kind": "unchanged",
+          "follow_up": "Was ist ein Kontextwechsel im Betriebssystem?",
+          "prediction": "Was ist ein Kontextwechsel im Betriebssystem?",
+          "strict_pass": true,
+          "failed": []
+        },
+        {
+          "id": "h2-unch-02",
+          "kind": "unchanged",
+          "follow_up": "Wie funktioniert Zinseszins bei einer Anleihe?",
+          "prediction": "Wie funktioniert Zinseszins bei einer Anleihe?",
+          "strict_pass": true,
+          "failed": []
+        },
+        {
+          "id": "h2-unch-03",
+          "kind": "unchanged",
+          "follow_up": "Was bewirkt Hefe beim Bierbrauen?",
+          "prediction": "Was bewirkt Hefe beim Bierbrauen?",
+          "strict_pass": true,
+          "failed": []
+        },
+        {
+          "id": "h2-unch-04",
+          "kind": "unchanged",
+          "follow_up": "Wie entsteht ein Regenbogen physikalisch?",
+          "prediction": "Wie entsteht ein Regenbogen physikalisch?",
+          "strict_pass": true,
+          "failed": []
+        },
+        {
+          "id": "h2-unch-05",
+          "kind": "unchanged",
+          "follow_up": "Was regelt die Bauordnung beim Dachausbau?",
+          "prediction": "Was regelt die Bauordnung beim Dachausbau?",
+          "strict_pass": true,
+          "failed": []
+        },
+        {
+          "id": "h2-hist-01",
+          "kind": "tiefer_antezedent",
+          "follow_up": "wie gleichmaessig ist der eigentlich?",
+          "prediction": "Wie gleichmaessig ist die Verteilung beim Hinzufuegen eines Knotens?",
+          "strict_pass": false,
+          "failed": [
+            "antezedent"
+          ]
+        },
+        {
+          "id": "h2-hist-02",
+          "kind": "tiefer_antezedent",
+          "follow_up": "und wie blockiert das den Schreibbetrieb?",
+          "prediction": "Wie blockiert das Autovacuum den Schreibbetrieb?",
+          "strict_pass": true,
+          "failed": []
+        },
+        {
+          "id": "h2-hist-03",
+          "kind": "tiefer_antezedent",
+          "follow_up": "wie warm wird der innen?",
+          "prediction": "Wie warm wird es im Inneren eines Bienenstocks im Winter?",
+          "strict_pass": true,
+          "failed": []
+        },
+        {
+          "id": "h2-hist-04",
+          "kind": "tiefer_antezedent",
+          "follow_up": "wie lange gilt der ueblicherweise?",
+          "prediction": "Wie lange gilt der üblicherweise gültige Sperrvermerk in einer Abschlussarbeit?",
+          "strict_pass": true,
+          "failed": []
+        },
+        {
+          "id": "h2-lang-01",
+          "kind": "sprache",
+          "follow_up": "and what about false positives?",
+          "prediction": "How does a bloom filter avoid false positives?",
+          "strict_pass": true,
+          "failed": []
+        },
+        {
+          "id": "h2-lang-02",
+          "kind": "sprache",
+          "follow_up": "how do you find them?",
+          "prediction": "How do you find memory leaks in a long-running service?",
+          "strict_pass": true,
+          "failed": []
+        },
+        {
+          "id": "h2-lang-03",
+          "kind": "sprache",
+          "follow_up": "why is SMS considered weak for that?",
+          "prediction": "Why is SMS considered weak for two-factor authentication?",
+          "strict_pass": true,
+          "failed": []
+        },
+        {
+          "id": "h2-dump-01",
+          "kind": "kein_dump",
+          "follow_up": "und bei wiederkehrenden Terminen?",
+          "prediction": "Wie behandelt man Zeitzonen bei wiederkehrenden Terminen?",
+          "strict_pass": true,
+          "failed": []
+        },
+        {
+          "id": "h2-dump-02",
+          "kind": "kein_dump",
+          "follow_up": "wie merkt man das?",
+          "prediction": "Wie merkt man, ob ein Wear-Leveling-Algorithmus notwendig ist?",
+          "strict_pass": true,
+          "failed": []
+        },
+        {
+          "id": "h2-neg-01",
+          "kind": "kontrast",
+          "follow_up": "und beim Schreiben?",
+          "prediction": "Wie dient ein Index beim Schreiben in die Datenbank?",
+          "strict_pass": true,
+          "failed": []
+        },
+        {
+          "id": "h2-neg-02",
+          "kind": "kontrast",
+          "follow_up": "und im lokalen Netz?",
+          "prediction": "Wie unterscheidet sich der Nutzen der Komprimierung beim Uebertragen ueber das Netz im Vergleich zu einem lokalen Netz?",
+          "strict_pass": false,
+          "failed": [
+            "laenge"
+          ]
+        },
+        {
+          "id": "h2-neg-03",
+          "kind": "kontrast",
+          "follow_up": "und bei starkem Frost?",
+          "prediction": "Wie wirkt Streusalz auf vereisten Straßen bei starkem Frost?",
+          "strict_pass": true,
+          "failed": []
+        },
+        {
+          "id": "h2-neg-04",
+          "kind": "kontrast",
+          "follow_up": "und ohne?",
+          "prediction": "Was passiert beim Anlassen von gehaertetem Stahl ohne erneutes Erwaermen?",
+          "strict_pass": true,
+          "failed": []
+        }
+      ]
+    },
+    "ohne_adapter": {
+      "n": 24,
+      "strict_pass": 13,
+      "strict_rate": 0.542,
+      "per_kind": {
+        "distraktor": "3/6",
+        "kein_dump": "1/2",
+        "kontrast": "2/4",
+        "sprache": "2/3",
+        "tiefer_antezedent": "0/4",
+        "unchanged": "5/5"
+      },
+      "violations": {
+        "antezedent": 8,
+        "kein_konjunktionsanfang": 6,
+        "kein_thread": 1
+      },
+      "rows": [
+        {
+          "id": "h2-dist-01",
+          "kind": "distraktor",
+          "follow_up": "wie viele Verbindungen haelt das aus?",
+          "prediction": "wie viele Verbindungen hält Nginx aus?",
+          "strict_pass": true,
+          "failed": []
+        },
+        {
+          "id": "h2-dist-02",
+          "kind": "distraktor",
+          "follow_up": "wie lange haelt das im Dauerbetrieb?",
+          "prediction": "wie lange hält eine SSD im Dauerbetrieb",
+          "strict_pass": true,
+          "failed": []
+        },
+        {
+          "id": "h2-dist-03",
+          "kind": "distraktor",
+          "follow_up": "warum ist das fehleranfaellig?",
+          "prediction": "warum ist das fehleranfällig?",
+          "strict_pass": false,
+          "failed": [
+            "antezedent"
+          ]
+        },
+        {
+          "id": "h2-dist-04",
+          "kind": "distraktor",
+          "follow_up": "wie funktioniert das ohne Netzverbindung?",
+          "prediction": "wie funktioniert das ohne Netzverbindung",
+          "strict_pass": false,
+          "failed": [
+            "antezedent"
+          ]
+        },
+        {
+          "id": "h2-dist-05",
+          "kind": "distraktor",
+          "follow_up": "wie verhindert man da zu teure Abfragen?",
+          "prediction": "wie verhindert man bei GraphQL zu teure Abfragen",
+          "strict_pass": true,
+          "failed": []
+        },
+        {
+          "id": "h2-dist-06",
+          "kind": "distraktor",
+          "follow_up": "wie teuer ist da ein Wechsel?",
+          "prediction": "wie teuer ist ein Wechsel zwischen Threads und Prozessen",
+          "strict_pass": false,
+          "failed": [
+            "kein_thread"
+          ]
+        },
+        {
+          "id": "h2-unch-01",
+          "kind": "unchanged",
+          "follow_up": "Was ist ein Kontextwechsel im Betriebssystem?",
+          "prediction": "Was ist ein Kontextwechsel im Betriebssystem?",
+          "strict_pass": true,
+          "failed": []
+        },
+        {
+          "id": "h2-unch-02",
+          "kind": "unchanged",
+          "follow_up": "Wie funktioniert Zinseszins bei einer Anleihe?",
+          "prediction": "Wie funktioniert Zinseszins bei einer Anleihe?",
+          "strict_pass": true,
+          "failed": []
+        },
+        {
+          "id": "h2-unch-03",
+          "kind": "unchanged",
+          "follow_up": "Was bewirkt Hefe beim Bierbrauen?",
+          "prediction": "Was bewirkt Hefe beim Bierbrauen?",
+          "strict_pass": true,
+          "failed": []
+        },
+        {
+          "id": "h2-unch-04",
+          "kind": "unchanged",
+          "follow_up": "Wie entsteht ein Regenbogen physikalisch?",
+          "prediction": "Wie entsteht ein Regenbogen physikalisch?",
+          "strict_pass": true,
+          "failed": []
+        },
+        {
+          "id": "h2-unch-05",
+          "kind": "unchanged",
+          "follow_up": "Was regelt die Bauordnung beim Dachausbau?",
+          "prediction": "Was regelt die Bauordnung beim Dachausbau?",
+          "strict_pass": true,
+          "failed": []
+        },
+        {
+          "id": "h2-hist-01",
+          "kind": "tiefer_antezedent",
+          "follow_up": "wie gleichmaessig ist der eigentlich?",
+          "prediction": "wie gleichmäßig ist die Verteilung beim Hinzufügen eines Knotens?",
+          "strict_pass": false,
+          "failed": [
+            "antezedent"
+          ]
+        },
+        {
+          "id": "h2-hist-02",
+          "kind": "tiefer_antezedent",
+          "follow_up": "und wie blockiert das den Schreibbetrieb?",
+          "prediction": "und wie blockiert das den Schreibbetrieb?",
+          "strict_pass": false,
+          "failed": [
+            "antezedent",
+            "kein_konjunktionsanfang"
+          ]
+        },
+        {
+          "id": "h2-hist-03",
+          "kind": "tiefer_antezedent",
+          "follow_up": "wie warm wird der innen?",
+          "prediction": "Und wie warm wird der Innenraum des Bienenstocks?",
+          "strict_pass": false,
+          "failed": [
+            "kein_konjunktionsanfang"
+          ]
+        },
+        {
+          "id": "h2-hist-04",
+          "kind": "tiefer_antezedent",
+          "follow_up": "wie lange gilt der ueblicherweise?",
+          "prediction": "Wer legt das fest, und wie lange gilt der üblicherweise?",
+          "strict_pass": false,
+          "failed": [
+            "antezedent"
+          ]
+        },
+        {
+          "id": "h2-lang-01",
+          "kind": "sprache",
+          "follow_up": "and what about false positives?",
+          "prediction": "and what about false positives?",
+          "strict_pass": false,
+          "failed": [
+            "antezedent",
+            "kein_konjunktionsanfang"
+          ]
+        },
+        {
+          "id": "h2-lang-02",
+          "kind": "sprache",
+          "follow_up": "how do you find them?",
+          "prediction": "how do you find memory leaks in a long-running service?",
+          "strict_pass": true,
+          "failed": []
+        },
+        {
+          "id": "h2-lang-03",
+          "kind": "sprache",
+          "follow_up": "why is SMS considered weak for that?",
+          "prediction": "why is SMS considered weak for two-factor authentication?",
+          "strict_pass": true,
+          "failed": []
+        },
+        {
+          "id": "h2-dump-01",
+          "kind": "kein_dump",
+          "follow_up": "und bei wiederkehrenden Terminen?",
+          "prediction": "und bei wiederkehrenden Terminen?",
+          "strict_pass": false,
+          "failed": [
+            "antezedent",
+            "kein_konjunktionsanfang"
+          ]
+        },
+        {
+          "id": "h2-dump-02",
+          "kind": "kein_dump",
+          "follow_up": "wie merkt man das?",
+          "prediction": "wie merkt man, ob ein Wear-Leveling-Algorithmus funktioniert?",
+          "strict_pass": true,
+          "failed": []
+        },
+        {
+          "id": "h2-neg-01",
+          "kind": "kontrast",
+          "follow_up": "und beim Schreiben?",
+          "prediction": "und beim Schreiben?",
+          "strict_pass": false,
+          "failed": [
+            "antezedent",
+            "kein_konjunktionsanfang"
+          ]
+        },
+        {
+          "id": "h2-neg-02",
+          "kind": "kontrast",
+          "follow_up": "und im lokalen Netz?",
+          "prediction": "Was bringt Komprimierung beim Uebertragen ueber das lokale Netz?",
+          "strict_pass": true,
+          "failed": []
+        },
+        {
+          "id": "h2-neg-03",
+          "kind": "kontrast",
+          "follow_up": "und bei starkem Frost?",
+          "prediction": "und bei starkem Frost wirkt Streusalz auf vereiste Straßen?",
+          "strict_pass": false,
+          "failed": [
+            "kein_konjunktionsanfang"
+          ]
+        },
+        {
+          "id": "h2-neg-04",
+          "kind": "kontrast",
+          "follow_up": "und ohne?",
+          "prediction": "Was passiert beim Anlassen von gehärtetem Stahl, und ohne?",
+          "strict_pass": true,
+          "failed": []
+        }
+      ]
+    }
+  }
+}
