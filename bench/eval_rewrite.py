@@ -236,10 +236,14 @@ def main() -> None:
     has_adapter = bool(args.adapter)
     if has_adapter:
         wrap_lora(model, r=8)
-        state = torch.load(args.adapter, map_location="cpu")
-        missing = model.load_state_dict(state, strict=False)
+        ckpt = torch.load(args.adapter, map_location="cpu")
+        state = ckpt.get("state", ckpt)  # train_lora speichert {state, meta}
+        info = model.load_state_dict(state, strict=False)
+        if info.unexpected_keys:
+            raise SystemExit(f"Adapter passt nicht zum Modell: "
+                             f"{len(info.unexpected_keys)} unbekannte Tensoren")
         print(f"Adapter geladen: {len(state)} Tensoren, "
-              f"unerwartet: {len(missing.unexpected_keys)}")
+              f"Schritt {ckpt.get('meta', {}).get('step', '?')}")
 
     # LayerManager statt ZeroFlushModel: das Modell ist hier schon geladen
     # (die Adapter muessen vor prepare() dranhaengen).
