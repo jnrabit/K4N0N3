@@ -104,7 +104,16 @@ def history_of(messages: list[dict]) -> str:
 
 
 def strip_think(text: str) -> str:
-    return re.sub(r"<think>.*?</think>", "", text or "", flags=re.DOTALL).strip()
+    """Entfernt den Gedankengang.
+
+    Zwei Faelle: (a) vollstaendiger <think>…</think>-Block im Text; (b) das
+    Chat-Template hat <think> schon im Prompt geoeffnet — dann enthaelt die
+    Generierung nur noch das schliessende Tag. Deshalb: alles nach dem
+    LETZTEN </think> gewinnt."""
+    text = text or ""
+    if "</think>" in text:
+        text = text.rsplit("</think>", 1)[1]
+    return re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
 
 
 def load_eval(path: Path) -> list[dict]:
@@ -136,14 +145,38 @@ def aggregate(rows: list[dict]) -> dict:
     }
 
 
-def generate(model, tokenizer, ex: dict, max_new: int) -> str:
+def prompt_opens_think(tokenizer) -> bool:
+    """Oeffnet das Chat-Template selbst einen <think>-Block im Prompt?
+
+    Qwen3.5 tut das. Folge: die Generierung enthaelt nur noch das SCHLIESSENDE
+    Tag — fehlt es, war das Denken beim Token-Limit noch nicht fertig, und der
+    Text ist Gedankengang, keine Antwort. Ohne diese Unterscheidung wuerde ein
+    abgeschnittener Monolog als (schlechte) Vorhersage gewertet."""
+    try:
+        rendered = tokenizer.apply_chat_template(
+            [{"role": "user", "content": "x"}], add_generation_prompt=True,
+            tokenize=False)
+    except Exception:  # noqa: BLE001
+        return False
+    return "<think>" in rendered and not rendered.rstrip().endswith("</think>")
+
+
+def generate(model, tokenizer, ex: dict, max_new: int,
+             opens_think: bool = False, thinking: bool = True) -> str:
+    kw = {} if thinking else {"enable_thinking": False}
     ids = tokenizer.apply_chat_template(
-        ex["prompt_messages"], tools=ex["tools"], add_generation_prompt=True,
-        tokenize=True, return_dict=False, return_tensors="pt").to(model.device)
+        ex["prompt_messages"], tools=ex["tools"], add_generation_prompt=True, **kw,
+        # bewusst "cuda", nicht model.device: unter dem Offload liegt das
+        # Modell auf der CPU, die Embeddings aber resident auf der GPU
+        tokenize=True, return_dict=False, return_tensors="pt").to("cuda")
     with torch.no_grad():
         out = model.generate(input_ids=ids, max_new_tokens=max_new, do_sample=False,
                              pad_token_id=tokenizer.pad_token_id or tokenizer.eos_token_id)
-    return strip_think(tokenizer.decode(out[0, ids.shape[1]:], skip_special_tokens=True))
+    raw = tokenizer.decode(out[0, ids.shape[1]:], skip_special_tokens=True)
+    if opens_think and "</think>" not in raw:
+        return f"<UNVOLLSTAENDIG nach {max_new} Tokens> {raw[:120]}"
+    pred = strip_think(raw)
+    return pred if pred else f"<LEER> {raw[:120]}"
 
 
 def main() -> None:
@@ -155,12 +188,18 @@ def main() -> None:
     p.add_argument("--budget-mb", type=int, default=3072)
     p.add_argument("--quantize-transfer", nargs="?", const="int8",
                    choices=["int8", "int4"], default=False)
+    p.add_argument("--no-thinking", action="store_true",
+                   help="enable_thinking=False ans Template (leerer Think-Block)")
+    p.add_argument("--limit", type=int, default=0,
+                   help="nur die ersten N Eval-Beispiele (Zeit sparen)")
     p.add_argument("--self-test", action="store_true",
                    help="nur Metriken gegen den Eval-Satz pruefen (CPU, kein Modell)")
     p.add_argument("--tag", default="")
     args = p.parse_args()
 
     examples = load_eval(Path(args.data))
+    if args.limit:
+        examples = examples[:args.limit]
     if not examples:
         raise SystemExit(f"Kein Eval-Satz in {args.data}")
 
@@ -186,7 +225,7 @@ def main() -> None:
     from transformers import AutoModelForCausalLM, AutoTokenizer
     from bench.harness import RESULTS_DIR, _git_commit
     from bench.train_lora import set_adapters, wrap_lora
-    from k4n0n3.hooks import ZeroFlushModel
+    from k4n0n3.hooks import LayerManager
 
     tokenizer = AutoTokenizer.from_pretrained(args.model)
     model = AutoModelForCausalLM.from_pretrained(args.model, dtype=torch.float16)
@@ -202,10 +241,15 @@ def main() -> None:
         print(f"Adapter geladen: {len(state)} Tensoren, "
               f"unerwartet: {len(missing.unexpected_keys)}")
 
-    zfm = ZeroFlushModel(model, vram_budget_mb=args.budget_mb,
-                         quantize_transfer=args.quantize_transfer)
-    zfm.prepare()
+    # LayerManager statt ZeroFlushModel: das Modell ist hier schon geladen
+    # (die Adapter muessen vor prepare() dranhaengen).
+    manager = LayerManager(model, layer_prefix="model.layers",
+                           vram_budget_mb=args.budget_mb, prefetch_depth=1,
+                           quantize_transfer=args.quantize_transfer)
+    manager.prepare()
     model.eval()
+    opens_think = prompt_opens_think(tokenizer) and not args.no_thinking
+    print(f"Template oeffnet <think>: {opens_think}")
 
     runs = {}
     for label, enabled in (("mit_adapter", True), ("ohne_adapter", False)):
@@ -215,7 +259,8 @@ def main() -> None:
             set_adapters(model, enabled)
         rows = []
         for ex in examples:
-            pred = generate(model, tokenizer, ex, args.max_new)
+            pred = generate(model, tokenizer, ex, args.max_new, opens_think,
+                            thinking=not args.no_thinking)
             rows.append({"trace_id": ex["trace_id"], "follow_up": ex["follow_up"],
                          "reference": ex["reference"], "prediction": pred,
                          "token_f1": token_f1(pred, ex["reference"]),

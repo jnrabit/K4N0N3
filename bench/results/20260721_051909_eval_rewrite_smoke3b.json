@@ -1,0 +1,108 @@
+{
+  "eval": true,
+  "config": {
+    "model": "Qwen/Qwen2.5-3B-Instruct",
+    "adapter": null,
+    "data": "/home/jnrabit/collect2/data/traces/curated/eval_set.jsonl",
+    "max_new": 32,
+    "budget_mb": 2048,
+    "quantize_transfer": false,
+    "self_test": false,
+    "tag": "smoke3b"
+  },
+  "git_commit": "f15e069e37433a6f010d3a4d25d27abaf3f3d1e1-dirty",
+  "timestamp": "2026-07-21T05:19:09",
+  "n_examples": 10,
+  "runs": {
+    "ohne_adapter": {
+      "summary": {
+        "n": 10,
+        "token_f1_median": 0.839,
+        "anchor_kept": "10/10",
+        "anchor_rate": 1.0
+      },
+      "rows": [
+        {
+          "trace_id": "0983d1df085c63a7",
+          "follow_up": "und wie skaliert das?",
+          "reference": "Wie skaliert Rate-Limiting mit einem Sliding-Window?",
+          "prediction": "Wie skaliert Rate-Limiting mit einem Sliding-Window?",
+          "token_f1": 1.0,
+          "keeps_anchor": true
+        },
+        {
+          "trace_id": "2f32d797925cb980",
+          "follow_up": "und bei nur einem Consumer?",
+          "reference": "Wie funktioniert Kafka-Partitionierung, wenn es nur einen Consumer gibt?",
+          "prediction": "Wie funktioniert Kafka-Partitionierung bei nur einem Consumer?",
+          "token_f1": 0.667,
+          "keeps_anchor": true
+        },
+        {
+          "trace_id": "5ff2f0bbc295ef61",
+          "follow_up": "worin unterscheidet es sich von Greedy?",
+          "reference": "Worin unterscheidet sich Beam-Search von Greedy bei der Textgenerierung?",
+          "prediction": "Worauf unterscheidet Beam-Search sich von Greedy bei der Textgenerierung?",
+          "token_f1": 0.9,
+          "keeps_anchor": true
+        },
+        {
+          "trace_id": "74e31d0aea9c8c04",
+          "follow_up": "und wann einsetzen?",
+          "reference": "Wann sollte man Apache Spark verwenden?",
+          "prediction": "Wann sollte man Apache Spark verwenden?",
+          "token_f1": 1.0,
+          "keeps_anchor": true
+        },
+        {
+          "trace_id": "7d01ce65decae923",
+          "follow_up": "wofür nutzt man das?",
+          "reference": "Wofür wird HMAC verwendet?",
+          "prediction": "Was nutzt man HMAC für?",
+          "token_f1": 0.222,
+          "keeps_anchor": true
+        },
+        {
+          "trace_id": "8af9c9307e92a26c",
+          "follow_up": "wie groß wird das?",
+          "reference": "Wie groß wird der KV-Cache bei der Textgenerierung?",
+          "prediction": "Wie groß wird der KV-Cache bei der Textgenerierung?",
+          "token_f1": 1.0,
+          "keeps_anchor": true
+        },
+        {
+          "trace_id": "b71416fd8003e70f",
+          "follow_up": "und wofür kann man das nutzen?",
+          "reference": "Wofür kann man Apache Spark nutzen?",
+          "prediction": "und für welche Anwendungen kann Spark verwendet werden?",
+          "token_f1": 0.286,
+          "keeps_anchor": true
+        },
+        {
+          "trace_id": "ca97f2c5cb7b16f5",
+          "follow_up": "und wie genau?",
+          "reference": "Wie genau funktioniert das TLS-Protokoll?",
+          "prediction": "Wie genau funktioniert das TLS-Protokoll?",
+          "token_f1": 1.0,
+          "keeps_anchor": true
+        },
+        {
+          "trace_id": "dba40ca947cd734d",
+          "follow_up": "was ist mit dem Speicher?",
+          "reference": "Wie verändert sich der Speicherbedarf während des Trainings wenn Gradient-Checkpointing verwendet wird?",
+          "prediction": "Was ist der Einfluss von Gradient-Checkpointing auf den Speicherbedarf während des Trainings?",
+          "token_f1": 0.538,
+          "keeps_anchor": true
+        },
+        {
+          "trace_id": "e994fe74749ec7ff",
+          "follow_up": "when does it blow up?",
+          "reference": "Under what conditions does a regex backtracking engine blow up?",
+          "prediction": "When does a regex backtracking engine blow up?",
+          "token_f1": 0.778,
+          "keeps_anchor": true
+        }
+      ]
+    }
+  }
+}

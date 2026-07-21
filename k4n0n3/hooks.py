@@ -34,11 +34,13 @@ def quantize_per_channel_int8(w: torch.Tensor) -> tuple[torch.Tensor, torch.Tens
     wf = w.detach().float()
     scale = wf.abs().amax(dim=1).div_(127.0).clamp_(min=2**-24)
     q = torch.round(wf / scale.unsqueeze(1)).clamp_(-127, 127).to(torch.int8)
-    return q, scale.to(torch.float16)
+    # dtype des Gewichts erhalten: Qwen3.5 kommt als bf16, und ein fp16-Scale
+    # macht die dequantisierten Gewichte inkompatibel zum Rest des Modells.
+    return q, scale.to(w.dtype)
 
 
 def dequantize_int8(q: torch.Tensor, scale: torch.Tensor) -> torch.Tensor:
-    return q.to(torch.float16) * scale.unsqueeze(1)
+    return q.to(scale.dtype) * scale.unsqueeze(1)
 
 
 # -- P: int4 group-wise gepackt (ersetzt den M5-per-Channel-Stand) -----------
@@ -70,7 +72,7 @@ def quantize_groupwise_int4(
     nib = q & 0xF  # Zweierkomplement-Nibble
     packed = (nib[:, 0::2] | (nib[:, 1::2] << 4)).to(torch.uint8)
     meta = {"group_size": group_size, "orig_shape": (out_f, in_f)}
-    return packed, scale.to(torch.float16), meta
+    return packed, scale.to(w.dtype), meta
 
 
 def dequantize_groupwise_int4(
@@ -88,7 +90,7 @@ def dequantize_groupwise_int4(
     q = torch.empty(out_f, in_f, dtype=torch.int8, device=packed.device)
     q[:, 0::2] = ((packed & 0x0F) ^ 8).view(torch.int8) - 8
     q[:, 1::2] = ((packed >> 4) ^ 8).view(torch.int8) - 8
-    w = q.to(torch.float16)
+    w = q.to(scale.dtype)  # Scale traegt den dtype des Originalgewichts
     n_groups = scale.shape[1]
     if in_f == n_groups * group_size:
         # Broadcast ueber Gruppen-View statt eines materialisierten
@@ -527,7 +529,7 @@ class LayerManager:
             # Exact prefix match with dot boundary
             if _matches_any_layer(mod_name, layer_set):
                 continue
-            if list(mod.parameters(recurse=False)):
+            if _has_own_tensors(mod):
                 mod.to("cuda", non_blocking=True)
 
     def offload_all(self) -> None:
@@ -539,7 +541,7 @@ class LayerManager:
         for mod_name, mod in self.model.named_modules():
             if _matches_any_layer(mod_name, layer_set):
                 continue
-            if list(mod.parameters(recurse=False)):
+            if _has_own_tensors(mod):
                 mod.to("cpu")
         self._prepared = False
 
@@ -618,6 +620,17 @@ def _drop_layer(module: torch.nn.Module, master: dict,
             param.data = entry
         elif pname in module._buffers:
             module._buffers[pname] = entry
+
+
+def _has_own_tensors(module: torch.nn.Module) -> bool:
+    """Eigene Parameter ODER Buffer (nicht rekursiv).
+
+    Buffer muessen mit: Qwen3.5 haelt die Rotary-Frequenzen (`inv_freq`) in
+    einem Modul ganz ohne Parameter. Wer nur auf Parameter prueft, laesst es
+    auf der CPU liegen — der erste Forward stirbt dann mit „two devices".
+    """
+    return bool(list(module.parameters(recurse=False))
+                or list(module.buffers(recurse=False)))
 
 
 def _get_param_by_name(module: torch.nn.Module, name: str) -> torch.nn.Parameter | None:

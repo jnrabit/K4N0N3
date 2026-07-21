@@ -36,6 +36,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 # Fallback auf den Toy-Satz (Auftrag Q3), falls nicht vorhanden.
 CURATED_DATA = Path.home() / "collect2" / "data" / "traces" / "curated" / "training_set.jsonl"
 TOY_DATA = Path(__file__).parent / "data" / "lora_train.jsonl"
+CKPT_DIR = Path(__file__).parent / "checkpoints"
 PROBE_PROMPT = "Frage: Was macht K4N0N3? Antwort:"
 # Referenzielle Probe fuer chat/rewrite-Daten (Adapter an/aus vergleichen)
 PROBE_CHAT = [
@@ -153,6 +154,19 @@ def wrap_lora(model, r: int,
     return adapters
 
 
+def adapter_state(model) -> dict:
+    """Nur die LoRA-Tensoren — nicht das eingefrorene 9B-Basismodell."""
+    return {n: p.detach().cpu().clone()
+            for n, p in model.named_parameters() if "lora_" in n}
+
+
+def save_adapter(model, path: Path, meta: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(path.suffix + ".tmp")  # atomar: kein halbes File
+    torch.save({"state": adapter_state(model), "meta": meta}, tmp)
+    tmp.replace(path)
+
+
 def set_adapters(model, enabled: bool) -> None:
     for m in model.modules():
         if isinstance(m, LoRALinear):
@@ -206,6 +220,11 @@ def main() -> None:
     p.add_argument("--quantize-transfer", nargs="?", const="int8",
                    choices=["int8", "int4"], default=False)
     p.add_argument("--grad-checkpointing", action="store_true")
+    p.add_argument("--checkpoint-every", type=int, default=10,
+                   help="Adapter alle N Schritte sichern (0 = nur am Ende)")
+    p.add_argument("--out", default=None,
+                   help="Zielpfad fuer den Adapter (.pt); Default aus --tag")
+    p.add_argument("--resume", default=None, help="Adapter-.pt weitertrainieren")
     p.add_argument("--tag", default="")
     args = p.parse_args()
 
@@ -244,6 +263,20 @@ def main() -> None:
     adapters = wrap_lora(model, args.r,
                          tuple(t.strip() for t in args.lora_targets.split(",") if t.strip()))
     n_adapter_params = sum(a.numel() for a in adapters)
+
+    if args.resume:
+        ckpt = torch.load(args.resume, map_location="cpu")
+        state = ckpt.get("state", ckpt)
+        info = model.load_state_dict(state, strict=False)
+        if info.unexpected_keys:
+            raise SystemExit(f"Adapter passt nicht zum Modell: "
+                             f"{len(info.unexpected_keys)} unbekannte Tensoren "
+                             f"(z. B. {info.unexpected_keys[:2]})")
+        print(f"Fortgesetzt von {args.resume} ({len(state)} Tensoren, "
+              f"Schritt {ckpt.get('meta', {}).get('step', '?')})")
+
+    adapter_path = Path(args.out) if args.out else (
+        CKPT_DIR / f"lora{'_' + args.tag if args.tag else ''}.pt")
 
     if args.grad_checkpointing:
         model.gradient_checkpointing_enable()
@@ -287,7 +320,20 @@ def main() -> None:
         step_times.append(round(dt, 1))
         print(f"step {step:3d} | loss {loss.item():.4f} | {dt:7.0f} ms", flush=True)
 
+        if args.checkpoint_every and (step + 1) % args.checkpoint_every == 0:
+            save_adapter(model, adapter_path,
+                         {"step": step + 1, "model": args.model, "r": args.r,
+                          "lora_targets": args.lora_targets, "lr": args.lr,
+                          "loss": loss_curve[-1], "data": str(data_path)})
+            print(f"  ↳ Adapter gesichert: {adapter_path}", flush=True)
+
     vram_peak_mb = torch.cuda.max_memory_allocated() / 1024**2
+    save_adapter(model, adapter_path,
+                 {"step": len(loss_curve), "model": args.model, "r": args.r,
+                  "lora_targets": args.lora_targets, "lr": args.lr,
+                  "loss": loss_curve[-1] if loss_curve else None,
+                  "data": str(data_path)})
+    print(f"Adapter final: {adapter_path}")
 
     # Funktionsprobe: Adapter an vs. aus (Q3 Kriterium 4)
     model.eval()
