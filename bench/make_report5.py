@@ -77,6 +77,26 @@ def main() -> None:
     e_neg = by_tag(evals, "qwythos_adapter_nothink")
     e_pos = by_tag(evals, "qwythos_noneg")
     e_3b = by_tag(evals, "smoke3b")
+    e_v2 = by_tag(evals, "qwythos_v2")
+    t_v2 = by_tag(trainings, "qwythos_v2")
+
+    # v2-Verdikt aus den Zahlen ableiten, nicht behaupten
+    if e_v2:
+        b2, w2, s2, det2 = paired(e_v2)
+        a_mit = summary(e_v2, "mit_adapter").get("anchor_kept", "—")
+        a_ohne = summary(e_v2, "ohne_adapter").get("anchor_kept", "—")
+        verdict = (f"Gepaart: **{b2} besser, {w2} schlechter, {s2} gleich** "
+                   f"(Anker {a_ohne} ohne → {a_mit} mit Adapter).")
+        if w2 > b2:
+            verdict += (" Der groessere Satz hat die Sache damit **verschlechtert** "
+                        "— mehr Daten sind nicht automatisch besser.")
+        elif b2 > w2:
+            verdict += " Die Richtung aus Lauf 1 bestaetigt sich auf groesserem Eval."
+        else:
+            verdict += (" Kein Netto-Effekt: Verbesserungen und Verschlechterungen "
+                        "heben sich auf.")
+    else:
+        verdict, det2 = "v2 nicht gemessen.", []
 
     L = [
         "# K4N0N3 — Umbau 5: Trace-Pipeline, Qwythos-9B-Finetune, Eval-Harness",
@@ -113,6 +133,11 @@ def main() -> None:
         ("*Ausser Konkurrenz: Qwen2.5-3B-Instruct, ohne Offload-Quant*",
          summary(e_3b, "ohne_adapter")),
     ]
+    if e_v2:
+        rows.insert(3, ("Qwythos-9B + Adapter **v2** (41 Beispiele, Eval n=15)",
+                        summary(e_v2, "mit_adapter")))
+        rows.insert(3, ("Qwythos-9B ohne Adapter — *Eval n=15*",
+                        summary(e_v2, "ohne_adapter")))
     for label, s in rows:
         if not s:
             L.append(f"| {label} | nicht gemessen | — |")
@@ -153,6 +178,18 @@ def main() -> None:
         "Der zweite Lauf unterscheidet sich **nur** durch "
         "`--negative-ratio 0`. Vorhergesagt waren ~8/10 vor dem Lauf.",
         "",
+        "## Lauf v2: doppelte Datenmenge (Charge 3)",
+        "",
+        "Traces von 53 auf **100** gebracht (Charge 3 bewusst ausserhalb der "
+        "Infra/ML-Domaene: Handwerk, Biologie, Recht, Finanzen, Geschichte). "
+        "Kuratierte Positive 32 → **56**, Trainingssatz 22 → **41**, "
+        "Eval-Satz 10 → **15**. Sonst identische Einstellungen, 80 statt 50 "
+        "Schritte wegen des groesseren Satzes.",
+        "",
+        verdict,
+        "",
+        *(det2 if e_v2 else []),
+        "",
         "## Training: LoRA auf Qwythos-9B (Basis > VRAM)",
         "",
         "| | mit Negativen | ohne Negative |",
@@ -165,6 +202,10 @@ def main() -> None:
         v = (t.get("config", {}) if cfg else t).get(key)
         return fmt(v, nd) if isinstance(v, float) else str(v)
 
+    if t_v2:
+        L[-1] = "| | mit Negativen | ohne Negative | v2 (41 Beispiele) |"
+        L.append("|---|---|---|---|")
+        L.pop(-3)
     for label, key, nd, cfg in [
         ("Beispiele", "n_examples", 0, False),
         ("Schritte", "steps", 0, True),
@@ -175,8 +216,10 @@ def main() -> None:
         ("Schrittzeit ms (Median)", "step_time_ms_median", 0, False),
         ("VRAM-Peak MB", "vram_peak_mb", 0, False),
     ]:
-        L.append(f"| {label} | {cell(t_neg, key, nd, cfg)} | "
-                 f"{cell(t_pos, key, nd, cfg)} |")
+        cells = f"| {label} | {cell(t_neg, key, nd, cfg)} | {cell(t_pos, key, nd, cfg)} |"
+        if t_v2:
+            cells += f" {cell(t_v2, key, nd, cfg)} |"
+        L.append(cells)
 
     if t_neg and t_pos:
         ln, lp = t_neg.get("loss_median_last10"), t_pos.get("loss_median_last10")

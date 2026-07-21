@@ -1,0 +1,280 @@
+{
+  "eval": true,
+  "config": {
+    "model": "empero-ai/Qwythos-9B-Claude-Mythos-5-1M",
+    "adapter": "bench/checkpoints/lora_qwythos_v2.pt",
+    "data": "/home/jnrabit/collect2/data/traces/curated/eval_set.jsonl",
+    "max_new": 64,
+    "budget_mb": 2048,
+    "quantize_transfer": "int4",
+    "no_thinking": true,
+    "limit": 0,
+    "self_test": false,
+    "tag": "qwythos_v2"
+  },
+  "git_commit": "ac359fea19f5377bd00ec5bf14c2eea57a92c8bb-dirty",
+  "timestamp": "2026-07-21T18:46:58",
+  "n_examples": 15,
+  "runs": {
+    "mit_adapter": {
+      "summary": {
+        "n": 15,
+        "token_f1_median": 0.762,
+        "anchor_kept": "15/15",
+        "anchor_rate": 1.0
+      },
+      "rows": [
+        {
+          "trace_id": "0946c184d8361cee",
+          "follow_up": "und bei Frost?",
+          "reference": "Wie funktioniert eine Waermepumpe bei Frost?",
+          "prediction": "Wie funktioniert eine Waermepumpe bei Frost?",
+          "token_f1": 1.0,
+          "keeps_anchor": true
+        },
+        {
+          "trace_id": "15beeb634f3c7761",
+          "follow_up": "welches davon spart am meisten?",
+          "reference": "Welches Kompressionsverfahren spart am meisten bei der Übertragung über HTTP?",
+          "prediction": "Welches der Kompressionsverfahren spart am meisten?",
+          "token_f1": 0.75,
+          "keeps_anchor": true
+        },
+        {
+          "trace_id": "2f32d797925cb980",
+          "follow_up": "und bei nur einem Consumer?",
+          "reference": "Wie funktioniert Kafka-Partitionierung, wenn es nur einen Consumer gibt?",
+          "prediction": "Wie funktioniert Kafka-Partitionierung, wenn nur ein Consumer vorhanden ist?",
+          "token_f1": 0.7,
+          "keeps_anchor": true
+        },
+        {
+          "trace_id": "5ff2f0bbc295ef61",
+          "follow_up": "worin unterscheidet es sich von Greedy?",
+          "reference": "Worin unterscheidet sich Beam-Search von Greedy bei der Textgenerierung?",
+          "prediction": "Was ist der Unterschied zwischen Beam-Search und Greedy-Search bei der Textgenerierung?",
+          "token_f1": 0.522,
+          "keeps_anchor": true
+        },
+        {
+          "trace_id": "716b0a91d86e2a20",
+          "follow_up": "why does it hurt CPU-bound code?",
+          "reference": "why does the python gil hinder cpu-bound code?",
+          "prediction": "Why does the Python Global Interpreter Lock (GIL) hurt CPU-bound code?",
+          "token_f1": 0.762,
+          "keeps_anchor": true
+        },
+        {
+          "trace_id": "7ceb577702d5ab81",
+          "follow_up": "and what happens at night?",
+          "reference": "What happens during the night that does not occur during photosynthesis?",
+          "prediction": "What happens during photosynthesis at night?",
+          "token_f1": 0.588,
+          "keeps_anchor": true
+        },
+        {
+          "trace_id": "836d1a0dd9abe448",
+          "follow_up": "und wo wird das eingesetzt?",
+          "reference": "Wo wird ein Merkle-Tree eingesetzt?",
+          "prediction": "Wo wird ein Merkle-Tree eingesetzt?",
+          "token_f1": 1.0,
+          "keeps_anchor": true
+        },
+        {
+          "trace_id": "9b41bf83c4a01a09",
+          "follow_up": "and what about shared memory?",
+          "reference": "What is the process for shared memory in copy-on-write forking?",
+          "prediction": "How does copy-on-write forking work, and what about shared memory?",
+          "token_f1": 0.583,
+          "keeps_anchor": true
+        },
+        {
+          "trace_id": "a7e918821d2610f9",
+          "follow_up": "wie schnell ist das?",
+          "reference": "Wie schnell erfolgt der Transport eines Nervenimpulses entlang des Axons?",
+          "prediction": "Wie schnell breitet sich ein Nervenimpuls entlang des Axons aus?",
+          "token_f1": 0.5,
+          "keeps_anchor": true
+        },
+        {
+          "trace_id": "b71416fd8003e70f",
+          "follow_up": "und wofür kann man das nutzen?",
+          "reference": "Wofür kann man Apache Spark nutzen?",
+          "prediction": "Wofür kann man Apache Spark nutzen?",
+          "token_f1": 1.0,
+          "keeps_anchor": true
+        },
+        {
+          "trace_id": "bd9309729a1ca167",
+          "follow_up": "and how does that change the batch size?",
+          "reference": "How does gradient accumulation affect the effective batch size?",
+          "prediction": "How does gradient accumulation change the effective batch size?",
+          "token_f1": 0.889,
+          "keeps_anchor": true
+        },
+        {
+          "trace_id": "d4c65d5c1f61c99f",
+          "follow_up": "wie wird das geloescht?",
+          "reference": "Wie wird eine Grundschuld im Grundbuch gelöscht?",
+          "prediction": "Wie wird die Grundschuld im Grundbuch gelöscht?",
+          "token_f1": 0.857,
+          "keeps_anchor": true
+        },
+        {
+          "trace_id": "e33d37fc7fad3fb0",
+          "follow_up": "warum wird das nicht ganz trocken?",
+          "reference": "Warum bleibt die Wäsche nicht ganz trocken bei der Nutzung einer Zentrifuge beim Waeschenschleudern?",
+          "prediction": "Warum wird die Wäsche nach dem Schleudern in der Zentrifuge nicht ganz trocken?",
+          "token_f1": 0.593,
+          "keeps_anchor": true
+        },
+        {
+          "trace_id": "ea36e647cdaa4d26",
+          "follow_up": "and how do central banks stop it?",
+          "reference": "How do central banks prevent a bank run from occurring?",
+          "prediction": "How do central banks stop a bank run?",
+          "token_f1": 0.778,
+          "keeps_anchor": true
+        },
+        {
+          "trace_id": "f8c6ff0218c15319",
+          "follow_up": "wie zuverlässig ist das?",
+          "reference": "Wie zuverlässig ist ein Bloom-Filter?",
+          "prediction": "Wie zuverlässig ist ein Bloom-Filter?",
+          "token_f1": 1.0,
+          "keeps_anchor": true
+        }
+      ]
+    },
+    "ohne_adapter": {
+      "summary": {
+        "n": 15,
+        "token_f1_median": 0.588,
+        "anchor_kept": "10/15",
+        "anchor_rate": 0.667
+      },
+      "rows": [
+        {
+          "trace_id": "0946c184d8361cee",
+          "follow_up": "und bei Frost?",
+          "reference": "Wie funktioniert eine Waermepumpe bei Frost?",
+          "prediction": "und bei Frost funktioniert eine Waermepumpe?",
+          "token_f1": 0.833,
+          "keeps_anchor": true
+        },
+        {
+          "trace_id": "15beeb634f3c7761",
+          "follow_up": "welches davon spart am meisten?",
+          "reference": "Welches Kompressionsverfahren spart am meisten bei der Übertragung über HTTP?",
+          "prediction": "welches der Kompressionsverfahren spart am meisten?",
+          "token_f1": 0.75,
+          "keeps_anchor": true
+        },
+        {
+          "trace_id": "2f32d797925cb980",
+          "follow_up": "und bei nur einem Consumer?",
+          "reference": "Wie funktioniert Kafka-Partitionierung, wenn es nur einen Consumer gibt?",
+          "prediction": "Was passiert bei Kafka-Partitionierung, wenn nur ein Consumer vorhanden ist?",
+          "token_f1": 0.476,
+          "keeps_anchor": true
+        },
+        {
+          "trace_id": "5ff2f0bbc295ef61",
+          "follow_up": "worin unterscheidet es sich von Greedy?",
+          "reference": "Worin unterscheidet sich Beam-Search von Greedy bei der Textgenerierung?",
+          "prediction": "Unterscheidet sich Beam-Search bei der Textgenerierung von Greedy?",
+          "token_f1": 0.947,
+          "keeps_anchor": true
+        },
+        {
+          "trace_id": "716b0a91d86e2a20",
+          "follow_up": "why does it hurt CPU-bound code?",
+          "reference": "why does the python gil hinder cpu-bound code?",
+          "prediction": "why does the Python Global Interpreter Lock (GIL) hurt CPU-bound code?",
+          "token_f1": 0.762,
+          "keeps_anchor": true
+        },
+        {
+          "trace_id": "7ceb577702d5ab81",
+          "follow_up": "and what happens at night?",
+          "reference": "What happens during the night that does not occur during photosynthesis?",
+          "prediction": "What is photosynthesis in simple terms and what happens at night?",
+          "token_f1": 0.364,
+          "keeps_anchor": true
+        },
+        {
+          "trace_id": "836d1a0dd9abe448",
+          "follow_up": "und wo wird das eingesetzt?",
+          "reference": "Wo wird ein Merkle-Tree eingesetzt?",
+          "prediction": "und wo wird das eingesetzt?",
+          "token_f1": 0.545,
+          "keeps_anchor": false
+        },
+        {
+          "trace_id": "9b41bf83c4a01a09",
+          "follow_up": "and what about shared memory?",
+          "reference": "What is the process for shared memory in copy-on-write forking?",
+          "prediction": "How does copy-on-write forking work, and what about shared memory?",
+          "token_f1": 0.583,
+          "keeps_anchor": true
+        },
+        {
+          "trace_id": "a7e918821d2610f9",
+          "follow_up": "wie schnell ist das?",
+          "reference": "Wie schnell erfolgt der Transport eines Nervenimpulses entlang des Axons?",
+          "prediction": "wie schnell ist ein Nervenimpuls entlang des Axons?",
+          "token_f1": 0.556,
+          "keeps_anchor": true
+        },
+        {
+          "trace_id": "b71416fd8003e70f",
+          "follow_up": "und wofür kann man das nutzen?",
+          "reference": "Wofür kann man Apache Spark nutzen?",
+          "prediction": "und wofür kann man das nutzen?",
+          "token_f1": 0.667,
+          "keeps_anchor": false
+        },
+        {
+          "trace_id": "bd9309729a1ca167",
+          "follow_up": "and how does that change the batch size?",
+          "reference": "How does gradient accumulation affect the effective batch size?",
+          "prediction": "and how does that change the batch size?",
+          "token_f1": 0.588,
+          "keeps_anchor": false
+        },
+        {
+          "trace_id": "d4c65d5c1f61c99f",
+          "follow_up": "wie wird das geloescht?",
+          "reference": "Wie wird eine Grundschuld im Grundbuch gelöscht?",
+          "prediction": "wie wird die Grundschuld im Grundbuch gelöscht?",
+          "token_f1": 0.857,
+          "keeps_anchor": true
+        },
+        {
+          "trace_id": "e33d37fc7fad3fb0",
+          "follow_up": "warum wird das nicht ganz trocken?",
+          "reference": "Warum bleibt die Wäsche nicht ganz trocken bei der Nutzung einer Zentrifuge beim Waeschenschleudern?",
+          "prediction": "warum wird das nicht ganz trocken?",
+          "token_f1": 0.4,
+          "keeps_anchor": false
+        },
+        {
+          "trace_id": "ea36e647cdaa4d26",
+          "follow_up": "and how do central banks stop it?",
+          "reference": "How do central banks prevent a bank run from occurring?",
+          "prediction": "and how do central banks stop it?",
+          "token_f1": 0.471,
+          "keeps_anchor": false
+        },
+        {
+          "trace_id": "f8c6ff0218c15319",
+          "follow_up": "wie zuverlässig ist das?",
+          "reference": "Wie zuverlässig ist ein Bloom-Filter?",
+          "prediction": "wie zuverlässig ist ein Bloom-Filter?",
+          "token_f1": 1.0,
+          "keeps_anchor": true
+        }
+      ]
+    }
+  }
+}
