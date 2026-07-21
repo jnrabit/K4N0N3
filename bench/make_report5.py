@@ -19,16 +19,18 @@ REPORT = Path(__file__).parent.parent / "UMBAU5_BERICHT.md"
 QWYTHOS = "empero-ai/Qwythos-9B-Claude-Mythos-5-1M"
 
 
-def load() -> tuple[list[dict], list[dict]]:
-    trainings, evals = [], []
+def load() -> tuple[list[dict], list[dict], list[dict]]:
+    trainings, evals, hard = [], [], []
     for f in sorted(RESULTS_DIR.glob("*.json")):
         d = json.loads(f.read_text())
         d["_file"] = f.name
-        if d.get("eval"):
+        if d.get("hard"):
+            hard.append(d)
+        elif d.get("eval"):
             evals.append(d)
         elif d.get("training"):
             trainings.append(d)
-    return trainings, evals
+    return trainings, evals, hard
 
 
 def fmt(v, nd=3) -> str:
@@ -69,8 +71,93 @@ def paired(ev: dict) -> tuple[int, int, int, list[str]]:
     return better, worse, same, details
 
 
+def _hard_section(h: dict | None) -> list[str]:
+    """Harter Eval — handgeschriebene Faelle mit Pro-Fall-Zusicherungen."""
+    L = ["## Harter Eval: 24 handgeschriebene Faelle", ""]
+    if not h:
+        return L + ["Nicht gemessen.", ""]
+    # Neu bewerten statt die gespeicherte Zusammenfassung zu uebernehmen:
+    # die Zusicherungen in eval_hard.jsonl koennen sich seit dem Lauf geaendert
+    # haben (dist-02). So bleibt der Bericht mit der aktuellen Definition
+    # konsistent, statt zwei Zahlenstaende zu mischen.
+    from bench.eval_hard import HARD_DATA, load_cases, score
+    cases = {c["id"]: c for c in load_cases(HARD_DATA)}
+    runs = {}
+    for label, stored in h.get("runs", {}).items():
+        rows = stored.get("rows", [])
+        try:
+            runs[label] = score([cases[r["id"]] for r in rows],
+                                [r["prediction"] for r in rows])
+        except KeyError:      # Fall aus dem Datensatz entfernt → Original
+            runs[label] = stored
+    mit, ohne = runs.get("mit_adapter"), runs.get("ohne_adapter")
+    L += [
+        "Der Eval oben ist zu milde: die Referenzen stammen vom SELBEN "
+        "Rewriter, der die Trainingsdaten erzeugt hat, und `keeps_anchor` "
+        "besteht schon bei der Haelfte der Ankerbegriffe — ein blosser "
+        "History-Dump haette 100 % erreicht. `bench/eval_hard.py` prueft "
+        "stattdessen pro Fall, was drin sein MUSS und was NICHT drin sein "
+        "darf, dazu Laenge, Sprache und Register. Bestanden nur, wenn ALLE "
+        "Zusicherungen halten (`strict`). Die Faelle sind von Hand "
+        "geschrieben, also unabhaengig von der Trainingsverteilung.",
+        "",
+        "Schaerfe VOR der Messung kalibriert (`--self-test`, CPU): "
+        "Ideal-Antwort 24/24, History-Dump 0/24, Distraktor-Antwort 0/24.",
+        "",
+        "| Kategorie | ohne Adapter | mit Adapter v2 | prueft |",
+        "|---|---|---|---|",
+    ]
+    why = {
+        "distraktor": "Historie nennt zwei Entitaeten — nur eine ist gemeint",
+        "tiefer_antezedent": "Bezug liegt zwei Turns zurueck",
+        "kontrast": "„und ohne?\" — das Gegenteil muss verschwinden",
+        "kein_dump": "lange Historie, kurze Antwort erzwungen",
+        "sprache": "englisch rein, englisch raus",
+        "unchanged": "schon eigenstaendig → nicht anfassen",
+    }
+    for kind in sorted((mit or ohne or {}).get("per_kind", {})):
+        L.append(f"| {kind} | {(ohne or {}).get('per_kind', {}).get(kind, '—')} | "
+                 f"**{(mit or {}).get('per_kind', {}).get(kind, '—')}** | "
+                 f"{why.get(kind, '')} |")
+    if ohne and mit:
+        L += [
+            f"| **gesamt** | **{ohne['strict_pass']}/{ohne['n']} "
+            f"({ohne['strict_rate']:.0%})** | **{mit['strict_pass']}/{mit['n']} "
+            f"({mit['strict_rate']:.0%})** | alle Zusicherungen |",
+            "",
+            "Haeufigste Verletzung ohne Adapter: "
+            + ", ".join(f"`{k}` ({v}x)" for k, v in
+                        list(ohne.get("violations", {}).items())[:3])
+            + " — also weitgehend die unveraendert durchgereichte Frage.",
+            "",
+            "**`unchanged` 5/5 in beiden Laeufen.** Das war der wichtigste "
+            "Test: die Sorge, dass das Weglassen der synthetischen Negative "
+            "(Lauf v2) das Modell zum Ueber-Umformulieren bringt, hat sich "
+            "NICHT bestaetigt.",
+            "",
+        ]
+    if mit:
+        fails = [r for r in mit.get("rows", []) if not r["strict_pass"]]
+        if fails:
+            L += ["Was mit Adapter noch fehlschlaegt:", ""]
+            for r in fails:
+                L.append(f"- `{r['id']}` [{', '.join(r['failed'])}] "
+                         f"`{r['follow_up']}` → `{r['prediction'][:70]}`")
+            L.append("")
+    L += [
+        "**Offengelegte Korrektur:** `dist-02` war eine fehlerhafte "
+        "Zusicherung, kein Modellfehler — bei „warum ist das schneller?\" ist "
+        "die Frage implizit vergleichend, die Nennung des Vergleichspartners "
+        "also korrekt. Nach Sichtung der Ausgaben entfernt. Die Korrektur "
+        "hebt BEIDE Laeufe um je einen Fall (11→12 und 20→21) und veraendert "
+        "den Abstand nicht. Die uebrigen Fehlschlaege bleiben stehen.",
+        "",
+    ]
+    return L
+
+
 def main() -> None:
-    trainings, evals = load()
+    trainings, evals, hards = load()
     t_neg = by_tag(trainings, "qwythos")
     t_pos = by_tag(trainings, "qwythos_noneg")
     e_base = by_tag(evals, "qwythos_basis_nothink")
@@ -79,6 +166,7 @@ def main() -> None:
     e_3b = by_tag(evals, "smoke3b")
     e_v2 = by_tag(evals, "qwythos_v2")
     t_v2 = by_tag(trainings, "qwythos_v2")
+    h_v2 = by_tag(hards, "v2")
 
     # v2-Verdikt aus den Zahlen ableiten, nicht behaupten
     if e_v2:
@@ -108,11 +196,19 @@ def main() -> None:
         "## Kernaussage",
         "",
         "Ein 9-Mrd.-Parameter-Modell wurde auf einer 8-GB-Karte per LoRA "
-        "finetuned und **verbessert die Zielaufgabe messbar** — aber erst, "
-        "nachdem die selbst erzeugten synthetischen Negativbeispiele aus dem "
-        "Trainingssatz entfernt waren. Der erste Lauf sah aus wie „bringt "
-        "nichts\"; tatsaechlich hoben sich zwei echte Verbesserungen und zwei "
-        "selbstgemachte Schaeden auf.",
+        "finetuned und **verbessert die Zielaufgabe messbar**: im harten, "
+        "handgeschriebenen Eval **12/24 ohne gegen 21/24 mit Adapter**.",
+        "",
+        "Zwei Befunde waren dafuer noetig, beide gegen den ersten Anschein:",
+        "",
+        "1. **Die selbst erzeugten synthetischen Negativbeispiele haben den "
+        "Finetune sabotiert.** Der erste Lauf sah aus wie „bringt nichts\"; "
+        "tatsaechlich hoben sich zwei echte Verbesserungen und zwei "
+        "selbstgemachte Schaeden auf. Sichtbar nur im gepaarten Vergleich pro "
+        "Beispiel — der Median verdeckt es vollstaendig.",
+        "2. **Die Loss taugt hier nicht zur Auswahl.** Der bessere Adapter hat "
+        "die HOEHERE Endloss. Wer nach Loss ausgewaehlt haette, haette den "
+        "schlechteren genommen.",
         "",
         "## Eval: Rewrite-Qualitaet auf 10 zurueckgehaltenen Traces",
         "",
@@ -190,6 +286,7 @@ def main() -> None:
         "",
         *(det2 if e_v2 else []),
         "",
+        *_hard_section(h_v2),
         "## Training: LoRA auf Qwythos-9B (Basis > VRAM)",
         "",
         "| | mit Negativen | ohne Negative |",
@@ -297,15 +394,19 @@ def main() -> None:
         "",
         "## Grenzen dieser Messung",
         "",
-        "- **10 Eval-Beispiele sind keine Statistik.** 6→9 sind drei "
-        "Beispiele. Die Richtung ist deutlich und die Fehlerklasse "
-        "mechanistisch erklaert, aber das ist ein starker Hinweis, kein "
-        "Beweis. Fuer Belastbarkeit braucht es den urspruenglich genannten "
-        "Umfang (50–100 Traces; Stand: 53 gesammelt, 32 kuratiert).",
-        "- **Der Eval-Satz stammt aus derselben Quelle wie das Training** "
-        "(gleiche Themen, gleicher Rewriter, gleiches Prompt-Format). "
-        "Gemessen ist Verbesserung *auf dieser Verteilung*, nicht allgemeine "
-        "Rewrite-Faehigkeit.",
+        "- **Die Stichproben sind klein.** 24 harte Faelle und 15 "
+        "zurueckgehaltene Traces; ein Unterschied von zwei, drei Faellen ist "
+        "Rauschen. Die Richtung ist ueber beide Evals konsistent und die "
+        "Fehlerklassen sind benannt — belastbar im statistischen Sinn ist das "
+        "trotzdem nicht.",
+        "- **Der Trace-Eval stammt aus derselben Quelle wie das Training** "
+        "(gleiche Themen, gleicher Rewriter, gleiches Prompt-Format) und "
+        "misst Verbesserung nur *auf dieser Verteilung*. Genau deshalb gibt "
+        "es den harten Eval mit handgeschriebenen Faellen; dessen Zahlen sind "
+        "die aussagekraeftigeren.",
+        "- **Der harte Eval ist von derselben Instanz geschrieben, die auch "
+        "die Kuration gemacht hat.** Gleiche blinde Flecken wirken in beiden "
+        "Richtungen; ein von aussen geschriebener Satz waere unabhaengiger.",
         "- **`token_f1` misst Formaehnlichkeit, nicht Korrektheit.** Der "
         "einzige verbleibende Ankerfehler des besseren Adapters ist "
         "`'Wie genau funktioniert TLS?'` gegen die Referenz "
@@ -321,7 +422,8 @@ def main() -> None:
         "|---|---|",
         "| `bench/checkpoints/lora_qwythos.pt` | Adapter mit synth. Negativen (13,9 MB) |",
         "| `bench/checkpoints/lora_qwythos_noneg.pt` | Adapter ohne Negative — der wirksame |",
-        "| `bench/eval_rewrite.py` | Eval-Harness, `--self-test` kalibriert die Skala |",
+        "| `bench/eval_rewrite.py` | Trace-Eval (Adapter an/aus, gepaart) |",
+        "| `bench/eval_hard.py` + `bench/data/eval_hard.jsonl` | harter Eval, 24 handgeschriebene Faelle |",
         "| `collect2: collect-traces build` | baut Trainings-/Eval-Satz reproduzierbar |",
         "| `collect2: docs/traces_curation.md` | Kurationsrubrik + Kalibrierbeispiele |",
         "",

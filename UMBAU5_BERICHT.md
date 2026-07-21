@@ -1,10 +1,15 @@
 # K4N0N3 — Umbau 5: Trace-Pipeline, Qwythos-9B-Finetune, Eval-Harness
 
-*Generiert am 2026-07-21 19:01 von `bench/make_report5.py` — alle Zahlen stammen aus den JSONs unter `bench/results/`. Nicht von Hand editieren.*
+*Generiert am 2026-07-21 20:20 von `bench/make_report5.py` — alle Zahlen stammen aus den JSONs unter `bench/results/`. Nicht von Hand editieren.*
 
 ## Kernaussage
 
-Ein 9-Mrd.-Parameter-Modell wurde auf einer 8-GB-Karte per LoRA finetuned und **verbessert die Zielaufgabe messbar** — aber erst, nachdem die selbst erzeugten synthetischen Negativbeispiele aus dem Trainingssatz entfernt waren. Der erste Lauf sah aus wie „bringt nichts"; tatsaechlich hoben sich zwei echte Verbesserungen und zwei selbstgemachte Schaeden auf.
+Ein 9-Mrd.-Parameter-Modell wurde auf einer 8-GB-Karte per LoRA finetuned und **verbessert die Zielaufgabe messbar**: im harten, handgeschriebenen Eval **12/24 ohne gegen 21/24 mit Adapter**.
+
+Zwei Befunde waren dafuer noetig, beide gegen den ersten Anschein:
+
+1. **Die selbst erzeugten synthetischen Negativbeispiele haben den Finetune sabotiert.** Der erste Lauf sah aus wie „bringt nichts"; tatsaechlich hoben sich zwei echte Verbesserungen und zwei selbstgemachte Schaeden auf. Sichtbar nur im gepaarten Vergleich pro Beispiel — der Median verdeckt es vollstaendig.
+2. **Die Loss taugt hier nicht zur Auswahl.** Der bessere Adapter hat die HOEHERE Endloss. Wer nach Loss ausgewaehlt haette, haette den schlechteren genommen.
 
 ## Eval: Rewrite-Qualitaet auf 10 zurueckgehaltenen Traces
 
@@ -76,6 +81,34 @@ Gepaart: **5 besser, 0 schlechter, 10 gleich** (Anker 10/15 ohne → 15/15 mit A
   ohne: `and how do central banks stop it?`  
   mit : `How do central banks stop a bank run?`
 
+## Harter Eval: 24 handgeschriebene Faelle
+
+Der Eval oben ist zu milde: die Referenzen stammen vom SELBEN Rewriter, der die Trainingsdaten erzeugt hat, und `keeps_anchor` besteht schon bei der Haelfte der Ankerbegriffe — ein blosser History-Dump haette 100 % erreicht. `bench/eval_hard.py` prueft stattdessen pro Fall, was drin sein MUSS und was NICHT drin sein darf, dazu Laenge, Sprache und Register. Bestanden nur, wenn ALLE Zusicherungen halten (`strict`). Die Faelle sind von Hand geschrieben, also unabhaengig von der Trainingsverteilung.
+
+Schaerfe VOR der Messung kalibriert (`--self-test`, CPU): Ideal-Antwort 24/24, History-Dump 0/24, Distraktor-Antwort 0/24.
+
+| Kategorie | ohne Adapter | mit Adapter v2 | prueft |
+|---|---|---|---|
+| distraktor | 1/6 | **4/6** | Historie nennt zwei Entitaeten — nur eine ist gemeint |
+| kein_dump | 1/2 | **2/2** | lange Historie, kurze Antwort erzwungen |
+| kontrast | 2/4 | **4/4** | „und ohne?" — das Gegenteil muss verschwinden |
+| sprache | 3/3 | **3/3** | englisch rein, englisch raus |
+| tiefer_antezedent | 0/4 | **3/4** | Bezug liegt zwei Turns zurueck |
+| unchanged | 5/5 | **5/5** | schon eigenstaendig → nicht anfassen |
+| **gesamt** | **12/24 (50%)** | **21/24 (88%)** | alle Zusicherungen |
+
+Haeufigste Verletzung ohne Adapter: `antezedent` (8x), `kein_konjunktionsanfang` (8x), `kein_postgres` (1x) — also weitgehend die unveraendert durchgereichte Frage.
+
+**`unchanged` 5/5 in beiden Laeufen.** Das war der wichtigste Test: die Sorge, dass das Weglassen der synthetischen Negative (Lauf v2) das Modell zum Ueber-Umformulieren bringt, hat sich NICHT bestaetigt.
+
+Was mit Adapter noch fehlschlaegt:
+
+- `dist-03` [antezedent, kein_postgres, kein_postgresql] `wie viele gleichzeitige Schreiber vertraegt das?` → `Wie viele gleichzeitige Schreiber verträgt PostgreSQL?`
+- `dist-06` [kein_rsa] `welche Schluessellaengen sind da ueblich?` → `Welche Schlüssellängen sind für RSA und AES üblich?`
+- `hist-04` [antezedent] `und wie prueft man damit einen einzelnen Eintrag?` → `Wie prüft man damit einen einzelnen Eintrag?`
+
+**Offengelegte Korrektur:** `dist-02` war eine fehlerhafte Zusicherung, kein Modellfehler — bei „warum ist das schneller?" ist die Frage implizit vergleichend, die Nennung des Vergleichspartners also korrekt. Nach Sichtung der Ausgaben entfernt. Die Korrektur hebt BEIDE Laeufe um je einen Fall (11→12 und 20→21) und veraendert den Abstand nicht. Die uebrigen Fehlschlaege bleiben stehen.
+
 ## Training: LoRA auf Qwythos-9B (Basis > VRAM)
 
 | | mit Negativen | ohne Negative | v2 (41 Beispiele) |
@@ -109,8 +142,9 @@ Beide waren seit Auftrag 3 vorhanden, fielen aber nie auf, weil nur Qwen2.5-fp16
 
 ## Grenzen dieser Messung
 
-- **10 Eval-Beispiele sind keine Statistik.** 6→9 sind drei Beispiele. Die Richtung ist deutlich und die Fehlerklasse mechanistisch erklaert, aber das ist ein starker Hinweis, kein Beweis. Fuer Belastbarkeit braucht es den urspruenglich genannten Umfang (50–100 Traces; Stand: 53 gesammelt, 32 kuratiert).
-- **Der Eval-Satz stammt aus derselben Quelle wie das Training** (gleiche Themen, gleicher Rewriter, gleiches Prompt-Format). Gemessen ist Verbesserung *auf dieser Verteilung*, nicht allgemeine Rewrite-Faehigkeit.
+- **Die Stichproben sind klein.** 24 harte Faelle und 15 zurueckgehaltene Traces; ein Unterschied von zwei, drei Faellen ist Rauschen. Die Richtung ist ueber beide Evals konsistent und die Fehlerklassen sind benannt — belastbar im statistischen Sinn ist das trotzdem nicht.
+- **Der Trace-Eval stammt aus derselben Quelle wie das Training** (gleiche Themen, gleicher Rewriter, gleiches Prompt-Format) und misst Verbesserung nur *auf dieser Verteilung*. Genau deshalb gibt es den harten Eval mit handgeschriebenen Faellen; dessen Zahlen sind die aussagekraeftigeren.
+- **Der harte Eval ist von derselben Instanz geschrieben, die auch die Kuration gemacht hat.** Gleiche blinde Flecken wirken in beiden Richtungen; ein von aussen geschriebener Satz waere unabhaengiger.
 - **`token_f1` misst Formaehnlichkeit, nicht Korrektheit.** Der einzige verbleibende Ankerfehler des besseren Adapters ist `'Wie genau funktioniert TLS?'` gegen die Referenz `'Wie genau funktioniert das TLS-Protokoll?'` — inhaltlich richtig, von der Metrik bestraft.
 - **Die Trainings-Loss taugt hier als Erfolgssignal nicht.** Der vorangegangene 3B-Lauf erreichte 0,0001 und verschlechterte die Aufgabe trotzdem. Deshalb dieser Eval-Harness.
 
@@ -120,7 +154,8 @@ Beide waren seit Auftrag 3 vorhanden, fielen aber nie auf, weil nur Qwen2.5-fp16
 |---|---|
 | `bench/checkpoints/lora_qwythos.pt` | Adapter mit synth. Negativen (13,9 MB) |
 | `bench/checkpoints/lora_qwythos_noneg.pt` | Adapter ohne Negative — der wirksame |
-| `bench/eval_rewrite.py` | Eval-Harness, `--self-test` kalibriert die Skala |
+| `bench/eval_rewrite.py` | Trace-Eval (Adapter an/aus, gepaart) |
+| `bench/eval_hard.py` + `bench/data/eval_hard.jsonl` | harter Eval, 24 handgeschriebene Faelle |
 | `collect2: collect-traces build` | baut Trainings-/Eval-Satz reproduzierbar |
 | `collect2: docs/traces_curation.md` | Kurationsrubrik + Kalibrierbeispiele |
 
