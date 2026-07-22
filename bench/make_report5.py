@@ -153,6 +153,63 @@ def _holdout2_section(h_v2: dict | None, h_v3: dict | None) -> list[str]:
     return L
 
 
+def _small_model_section(h_3b: dict | None, h_3bneg: dict | None) -> list[str]:
+    """qwen2.5:3b als der eigentlich einsetzbare Rewriter (resident, schnell)."""
+    from bench.eval_hard import HARD_DATA
+    data2 = HARD_DATA.parent / "eval_hard2.jsonl"
+    L = ["## Der einsetzbare Weg: qwen2.5:3b (resident statt offloaded)", ""]
+    if not h_3b:
+        return L + ["Nicht gemessen.", ""]
+    L += [
+        "Der 9B laeuft auf dieser 8-GB-Karte nur ueber Offload — PCIe-4.0-x8-"
+        "gebunden, ~300 s pro Rewrite, nicht interaktiv. Ein kleines Modell "
+        "passt resident: kein Transfer pro Token, Millisekunden statt Minuten. "
+        "Also dieselbe Finetune-Frage fuer `qwen2.5:3b`, gemessen auf "
+        "**demselben** unabhaengigen Holdout 2.",
+        "",
+    ]
+    r3b = _rescore(h_3b, data2)
+    base = r3b.get("ohne_adapter", {})
+    pos = r3b.get("mit_adapter", {})
+    rows = [("**qwen2.5:3b Basis (Pipeline-Default)**", base)]
+    rows.append(("+ Finetune (56 pos, `--negative-ratio 0`)", pos))
+    if h_3bneg:
+        neg = _rescore(h_3bneg, data2).get("mit_adapter", {})
+        rows.append(("+ Finetune (56 pos + 9 neg, `0.15`)", neg))
+    L += ["| Variante | gesamt | Distraktor | UNCHANGED |", "|---|---|---|---|"]
+    for label, s in rows:
+        pk = s.get("per_kind", {})
+        L.append(f"| {label} | **{s.get('strict_pass')}/{s.get('n')}** | "
+                 f"{pk.get('distraktor','—')} | {pk.get('unchanged','—')} |")
+    L += [
+        "",
+        "**Kein Finetune schlaegt die Basis.** Der all-positive Lauf tauscht "
+        "nur um: **+Distraktor** (1/6→3/6, das Modell lernt sich zu "
+        "entscheiden) gegen **−UNCHANGED** (5/5→3/5, es formt jetzt schon "
+        "eigenstaendige Fragen um) — netto 17=17. Der Versuch, das mit 15 % "
+        "synthetischen Negativen zu balancieren, war die schlechteste Variante "
+        "(16/24): er zerstoerte den Distraktor-Gewinn UND stellte UNCHANGED "
+        "nicht wieder her.",
+        "",
+        "**Vorhergesagt waren ~19/24, gemessen 16/24 — die Hypothese ist "
+        "widerlegt.** Damit ist der Negativ-Befund doppelt belegt: die "
+        "synthetischen UNCHANGED-Negative helfen KEINEM Modell (sie "
+        "verschlechterten schon den 9B). Sie sind konstruiert, nicht echt, und "
+        "uebertragen nicht auf echte eigenstaendige Fragen. Echte Negative "
+        "kann die Pipeline nicht sammeln — `is_referential()` faengt "
+        "eigenstaendige Fragen vor dem Rewriter ab. Diese Gate-Grenze deckelt "
+        "den Finetune-Ansatz.",
+        "",
+        "**Konsequenz fuer den Betrieb:** der Rewriter bleibt auf der "
+        "unfinetunten `qwen2.5:3b` (bereits `rewrite_model`/`decompose_model` "
+        "im Default) — resident, schnell, und so gut wie jeder Finetune hier. "
+        "Der 9B-Finetune bleibt als belegte Faehigkeits-Demonstration "
+        "(13→21 auf Holdout 2), nicht als Produktionsartefakt.",
+        "",
+    ]
+    return L
+
+
 def _hard_section(h: dict | None) -> list[str]:
     """Harter Eval — handgeschriebene Faelle mit Pro-Fall-Zusicherungen."""
     L = ["## Harter Eval 1: 24 handgeschriebene Faelle", "",
@@ -255,6 +312,8 @@ def main() -> None:
     h_v2 = by_tag(hards, "v2")
     h2_v2 = by_tag(hards, "v2_holdout2")
     h2_v3 = by_tag(hards, "v3_holdout2")
+    h2_3b = by_tag(hards, "3b_rewrite_h2")      # qwen2.5:3b, all-positiv
+    h2_3bneg = by_tag(hards, "3b_neg15_h2")     # qwen2.5:3b, 15 % Negative
 
     # v2-Verdikt aus den Zahlen ableiten, nicht behaupten
     if e_v2:
@@ -292,6 +351,12 @@ def main() -> None:
         "(41 Trainingsbeispiele). Der spaetere v3 mit gezielt nachgesammelten "
         "Daten (56 Beispiele) liegt mit 20/24 darunter — die Nachsammlung "
         "brachte nichts, siehe „Holdout 2\".",
+        "",
+        "**Fuer den PRODUKTIVEN Rewriter ist die Antwort trotzdem: kein "
+        "Finetune.** Der 9B laeuft auf dieser 8-GB-Karte nur ueber Offload "
+        "(~300 s/Rewrite, PCIe-gebunden). Ein resident laufendes qwen2.5:3b "
+        "ist der einsetzbare Weg — und dessen Basis (17/24) schlaegt keiner "
+        "der drei 3B-Finetunes. Siehe „Der einsetzbare Weg\".",
         "",
         "Drei Befunde waren dafuer noetig, alle gegen den ersten Anschein:",
         "",
@@ -386,6 +451,7 @@ def main() -> None:
         "",
         *_hard_section(h_v2),
         *_holdout2_section(h2_v2, h2_v3),
+        *_small_model_section(h2_3b, h2_3bneg),
         "## Training: LoRA auf Qwythos-9B (Basis > VRAM)",
         "",
         "| | mit Negativen | ohne Negative |",
@@ -530,6 +596,8 @@ def main() -> None:
         "| `bench/checkpoints/lora_qwythos.pt` | Adapter mit synth. Negativen — der Negativ-Befund |",
         "| `bench/checkpoints/lora_qwythos_noneg.pt` | erster wirksamer Adapter (22 Beispiele) |",
         "| `bench/data/eval_hard2.jsonl` | unabhaengiger Holdout, vor Charge 4 festgeschrieben |",
+        "| `bench/checkpoints/lora_qwen3b_rewrite.pt` | qwen2.5:3b-Finetune (all-positiv) — schlaegt Basis nicht |",
+        "| `bench/checkpoints/lora_qwen3b_neg15.pt` | qwen2.5:3b + 15 % Negative — schlechteste Variante |",
         "| `bench/eval_rewrite.py` | Trace-Eval (Adapter an/aus, gepaart) |",
         "| `bench/eval_hard.py` + `bench/data/eval_hard.jsonl` | harter Eval, 24 handgeschriebene Faelle |",
         "| `collect2: collect-traces build` | baut Trainings-/Eval-Satz reproduzierbar |",

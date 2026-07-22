@@ -1,12 +1,14 @@
 # K4N0N3 — Umbau 5: Trace-Pipeline, Qwythos-9B-Finetune, Eval-Harness
 
-*Generiert am 2026-07-21 22:54 von `bench/make_report5.py` — alle Zahlen stammen aus den JSONs unter `bench/results/`. Nicht von Hand editieren.*
+*Generiert am 2026-07-22 14:10 von `bench/make_report5.py` — alle Zahlen stammen aus den JSONs unter `bench/results/`. Nicht von Hand editieren.*
 
 ## Kernaussage
 
 Ein 9-Mrd.-Parameter-Modell wurde auf einer 8-GB-Karte per LoRA finetuned und **verbessert die Zielaufgabe messbar**: auf einem unabhaengigen, vor der Datensammlung festgeschriebenen Testsatz **13/24 ohne gegen 21/24 mit Adapter**.
 
 **Ergebnis-Artefakt ist `bench/checkpoints/lora_qwythos_v2.pt`** (41 Trainingsbeispiele). Der spaetere v3 mit gezielt nachgesammelten Daten (56 Beispiele) liegt mit 20/24 darunter — die Nachsammlung brachte nichts, siehe „Holdout 2".
+
+**Fuer den PRODUKTIVEN Rewriter ist die Antwort trotzdem: kein Finetune.** Der 9B laeuft auf dieser 8-GB-Karte nur ueber Offload (~300 s/Rewrite, PCIe-gebunden). Ein resident laufendes qwen2.5:3b ist der einsetzbare Weg — und dessen Basis (17/24) schlaegt keiner der drei 3B-Finetunes. Siehe „Der einsetzbare Weg".
 
 Drei Befunde waren dafuer noetig, alle gegen den ersten Anschein:
 
@@ -140,6 +142,22 @@ Aufgeschluesselt: v3 gewinnt einen Distraktor-Fall (`SSD- oder HDD-Speicher` →
 
 **Korrektur zum Protokoll:** waehrend des Laufs wurde der Sprung beim tiefen Antezedenten (0/4 → 3/4) zunaechst Charge 4 zugeschrieben. Das war falsch — verglichen worden war gegen die BASIS, nicht gegen v2. v2 hatte dort bereits 4/4, ganz ohne Zwei-Turn-Trainingsdaten.
 
+## Der einsetzbare Weg: qwen2.5:3b (resident statt offloaded)
+
+Der 9B laeuft auf dieser 8-GB-Karte nur ueber Offload — PCIe-4.0-x8-gebunden, ~300 s pro Rewrite, nicht interaktiv. Ein kleines Modell passt resident: kein Transfer pro Token, Millisekunden statt Minuten. Also dieselbe Finetune-Frage fuer `qwen2.5:3b`, gemessen auf **demselben** unabhaengigen Holdout 2.
+
+| Variante | gesamt | Distraktor | UNCHANGED |
+|---|---|---|---|
+| **qwen2.5:3b Basis (Pipeline-Default)** | **17/24** | 1/6 | 5/5 |
+| + Finetune (56 pos, `--negative-ratio 0`) | **17/24** | 3/6 | 3/5 |
+| + Finetune (56 pos + 9 neg, `0.15`) | **16/24** | 1/6 | 3/5 |
+
+**Kein Finetune schlaegt die Basis.** Der all-positive Lauf tauscht nur um: **+Distraktor** (1/6→3/6, das Modell lernt sich zu entscheiden) gegen **−UNCHANGED** (5/5→3/5, es formt jetzt schon eigenstaendige Fragen um) — netto 17=17. Der Versuch, das mit 15 % synthetischen Negativen zu balancieren, war die schlechteste Variante (16/24): er zerstoerte den Distraktor-Gewinn UND stellte UNCHANGED nicht wieder her.
+
+**Vorhergesagt waren ~19/24, gemessen 16/24 — die Hypothese ist widerlegt.** Damit ist der Negativ-Befund doppelt belegt: die synthetischen UNCHANGED-Negative helfen KEINEM Modell (sie verschlechterten schon den 9B). Sie sind konstruiert, nicht echt, und uebertragen nicht auf echte eigenstaendige Fragen. Echte Negative kann die Pipeline nicht sammeln — `is_referential()` faengt eigenstaendige Fragen vor dem Rewriter ab. Diese Gate-Grenze deckelt den Finetune-Ansatz.
+
+**Konsequenz fuer den Betrieb:** der Rewriter bleibt auf der unfinetunten `qwen2.5:3b` (bereits `rewrite_model`/`decompose_model` im Default) — resident, schnell, und so gut wie jeder Finetune hier. Der 9B-Finetune bleibt als belegte Faehigkeits-Demonstration (13→21 auf Holdout 2), nicht als Produktionsartefakt.
+
 ## Training: LoRA auf Qwythos-9B (Basis > VRAM)
 
 | | mit Negativen | ohne Negative | v2 (41 Beispiele) |
@@ -189,6 +207,8 @@ Beide waren seit Auftrag 3 vorhanden, fielen aber nie auf, weil nur Qwen2.5-fp16
 | `bench/checkpoints/lora_qwythos.pt` | Adapter mit synth. Negativen — der Negativ-Befund |
 | `bench/checkpoints/lora_qwythos_noneg.pt` | erster wirksamer Adapter (22 Beispiele) |
 | `bench/data/eval_hard2.jsonl` | unabhaengiger Holdout, vor Charge 4 festgeschrieben |
+| `bench/checkpoints/lora_qwen3b_rewrite.pt` | qwen2.5:3b-Finetune (all-positiv) — schlaegt Basis nicht |
+| `bench/checkpoints/lora_qwen3b_neg15.pt` | qwen2.5:3b + 15 % Negative — schlechteste Variante |
 | `bench/eval_rewrite.py` | Trace-Eval (Adapter an/aus, gepaart) |
 | `bench/eval_hard.py` + `bench/data/eval_hard.jsonl` | harter Eval, 24 handgeschriebene Faelle |
 | `collect2: collect-traces build` | baut Trainings-/Eval-Satz reproduzierbar |
