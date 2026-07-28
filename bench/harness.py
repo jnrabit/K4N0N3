@@ -70,6 +70,35 @@ def _git_commit() -> str:
         return "unknown"
 
 
+def _pcie_link() -> dict:
+    """PCIe-Link-Status der dGPU, gelesen WÄHREND der Messphase (nicht im Idle:
+    ASPM trainiert den Link runter). Auftrag 6 T1. Findet die AMD-Karte über
+    vendor=0x1002; None-Felder, wenn kein passendes sysfs-Device existiert."""
+    from pathlib import Path as _P
+    for dev in sorted(_P("/sys/class/drm").glob("card*/device")):
+        speed = dev / "current_link_speed"
+        if not speed.exists():
+            continue
+        try:
+            vendor = (dev / "vendor").read_text().strip()
+        except OSError:
+            vendor = ""
+        if vendor and vendor != "0x1002":
+            continue
+        try:
+            return {
+                "pcie_link_speed": speed.read_text().strip(),
+                "pcie_link_width": (dev / "current_link_width").read_text().strip(),
+                "pcie_link_max_speed": (dev / "max_link_speed").read_text().strip(),
+                "pcie_link_max_width": (dev / "max_link_width").read_text().strip(),
+                "pcie_link_card": dev.parent.name,
+            }
+        except OSError:
+            continue
+    return {"pcie_link_speed": None, "pcie_link_width": None,
+            "pcie_link_card": None}
+
+
 def _tensor_bytes(obj) -> int:
     """Bytes eines Master-Eintrags — plain Tensor oder Quant-Dict {q, scale}."""
     if isinstance(obj, torch.Tensor):
@@ -223,6 +252,9 @@ def run(config: dict) -> dict:
         _timed_forward(zfm, input_ids)
     warm = [round(_timed_forward(zfm, input_ids), 1) for _ in range(5)]
     result["warm_forward_ms"] = {"median": statistics.median(warm), "values": warm}
+
+    # T1: Link-Status WÄHREND der Messphase (GPU noch aktiv von den Warm-Forwards)
+    result.update(_pcie_link())
 
     # Phase 3: Offload-Wirksamkeit
     result.update(measure_offload_frees_mb(lm))

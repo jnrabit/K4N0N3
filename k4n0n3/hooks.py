@@ -569,6 +569,19 @@ class LayerManager:
 
 # -- A2/M2 helpers: per-parameter upload/drop --------------------------------
 
+# T-Diagnose (Auftrag 6 T): zaehlt einzelne H2D-Copies im Upload-Pfad, um
+# Fragmentierung (viele kleine Transfers statt einem Block) zu beziffern. Ein
+# int-Increment je .to("cuda") ist gegen die Kopie selbst vernachlaessigbar;
+# der Zaehler bleibt immer an, der Probe nullt ihn vor der Messung.
+_upload_copy_count = 0
+
+
+def reset_upload_copy_count() -> int:
+    """Gibt den bisherigen Zaehlerstand zurueck und setzt ihn auf 0."""
+    global _upload_copy_count
+    n, _upload_copy_count = _upload_copy_count, 0
+    return n
+
 
 def _upload_layer(module: torch.nn.Module, master: dict,
                   param_refs: dict[str, torch.nn.Parameter] | None = None) -> None:
@@ -578,6 +591,7 @@ def _upload_layer(module: torch.nn.Module, master: dict,
     Die int8/scale-Staging-Tensoren verlieren nach dem Dequant ihre Referenz,
     der Allocator gibt sie frei.
     """
+    global _upload_copy_count
     if param_refs is None:
         param_dict = dict(module.named_parameters())
     else:
@@ -588,6 +602,7 @@ def _upload_layer(module: torch.nn.Module, master: dict,
             if param is not None:
                 q_gpu = _packed_tensor(entry).to("cuda", non_blocking=True)
                 s_gpu = entry["scale"].to("cuda", non_blocking=True)
+                _upload_copy_count += 2
                 if "q4" in entry:
                     param.data = dequantize_groupwise_int4(q_gpu, s_gpu, entry["meta"])
                 else:
@@ -595,8 +610,10 @@ def _upload_layer(module: torch.nn.Module, master: dict,
             continue
         if param is not None:
             param.data = entry.to("cuda", non_blocking=True)
+            _upload_copy_count += 1
         elif pname in module._buffers:
             module._buffers[pname] = entry.to("cuda", non_blocking=True)
+            _upload_copy_count += 1
 
 
 def _drop_layer(module: torch.nn.Module, master: dict,
