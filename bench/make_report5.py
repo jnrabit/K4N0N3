@@ -210,6 +210,134 @@ def _small_model_section(h_3b: dict | None, h_3bneg: dict | None) -> list[str]:
     return L
 
 
+def _moe_section(base1, moe1, base2, moe2) -> list[str]:
+    """Staerkeres Basismodell (qwen3:30b-a3b-2507 MoE) gegen die 3B-Basis,
+    gleicher Ollama-Treiber, gleiche Faelle: loest ein groesseres Modell den
+    Distraktor-Fall — oder trifft es dieselbe Entscheidung?"""
+    from bench.eval_hard import HARD_DATA
+    data1, data2 = HARD_DATA, HARD_DATA.parent / "eval_hard2.jsonl"
+    L = ["## Groesseres Basismodell: loest ein 30B-MoE den Distraktor-Fall?", ""]
+    if not (base1 and moe1 and base2 and moe2):
+        return L + ["Nicht gemessen.", ""]
+
+    def sc(d, data):
+        return _rescore(d, data).get("ollama", {})
+
+    def lat(d):
+        return (d.get("latency_s") or {}).get("median")
+
+    def dfail(s):
+        return {r["id"] for r in s.get("rows", [])
+                if r["kind"] == "distraktor" and not r["strict_pass"]}
+
+    b1, m1 = sc(base1, data1), sc(moe1, data1)
+    b2, m2 = sc(base2, data2), sc(moe2, data2)
+    d1 = m1.get("strict_pass", 0) - b1.get("strict_pass", 0)
+    d2 = m2.get("strict_pass", 0) - b2.get("strict_pass", 0)
+    ov2 = dfail(b2) & dfail(m2)
+    ident2 = dfail(b2) == dfail(m2)
+
+    L += [
+        "Der einzige ungeloeste Fehler war der Distraktor-Fall (die Historie "
+        "nennt zwei Entitaeten, gemeint ist eine). Antrainieren ging nicht, "
+        "weil das Lehrer-Modell qwen2.5:3b selbst hedgt. Hypothese: ein "
+        "deutlich staerkeres Basismodell bringt die Entscheidung schlicht mit. "
+        "Getestet mit `qwen3:30b-a3b-instruct-2507` (q4, MoE, 3B aktiv/Token) "
+        "gegen dieselbe 3B-Basis, **durch denselben Ollama-Treiber** "
+        "(`bench/eval_hard_ollama.py`) auf **denselben** Faellen — die "
+        "Bewertung (`build_messages`/`score`) ist unveraendert aus "
+        "`eval_hard.py` importiert, nur der Modellaufruf ist neu. `--self-test` "
+        "reproduziert die eingefrorene Skala (Ideal 24/24, Dump/Distraktor "
+        "0/24), bevor eine Modellzahl faellt.",
+        "",
+        "| Modell (q4, Ollama) | Satz 1 | Holdout 2 | Distraktor S1 | Distraktor H2 | Latenz/Rewrite |",
+        "|---|---|---|---|---|---|",
+        f"| qwen2.5:3b (Basis) | {b1.get('strict_pass')}/{b1.get('n')} | "
+        f"{b2.get('strict_pass')}/{b2.get('n')} | "
+        f"{b1.get('per_kind', {}).get('distraktor', '—')} | "
+        f"{b2.get('per_kind', {}).get('distraktor', '—')} | {fmt(lat(base1), 1)} s |",
+        f"| **qwen3:30b-a3b-2507** | **{m1.get('strict_pass')}/{m1.get('n')}** | "
+        f"**{m2.get('strict_pass')}/{m2.get('n')}** | "
+        f"{m1.get('per_kind', {}).get('distraktor', '—')} | "
+        f"{m2.get('per_kind', {}).get('distraktor', '—')} | "
+        f"**{fmt(lat(moe1), 1)}–{fmt(lat(moe2), 1)} s** |",
+        "",
+        "### Befund: das groessere Modell trifft dieselbe Entscheidung",
+        "",
+        f"Das 30B ist gesamt klar besser (+{d1} auf Satz 1, +{d2} auf "
+        "Holdout 2) — **aber nicht beim Distraktor.** Gepaart pro Fall "
+        f"nachgesehen: auf Holdout 2 versagen beide Modelle an "
+        f"{'**exakt denselben**' if ident2 else 'weitgehend denselben'} "
+        f"Distraktor-Faellen ({', '.join('`'+c+'`' for c in sorted(ov2))}) — "
+        "und zwar mit derselben Antwort: beide nennen beide Entitaeten "
+        "(`X im Vergleich zu Y`). Beispiele, 3B gegen 30B:",
+        "",
+    ]
+    m2rows = {r["id"]: r for r in m2.get("rows", [])}
+    b2rows = {r["id"]: r for r in b2.get("rows", [])}
+    for cid in sorted(ov2)[:3]:
+        L.append(f"- `{cid}`  3B: `{b2rows[cid]['prediction'][:52]}`  ·  "
+                 f"30B: `{m2rows[cid]['prediction'][:52]}`")
+    L += [
+        "",
+        "Der eine Distraktor-Fall, den das 30B auf Satz 1 mehr besteht, war "
+        "beim 3B gar kein Distraktor-Fehler, sondern ein Konjunktions-Anfang "
+        "(`und wie persistiert Redis?` — Redis korrekt gewaehlt, nur mit `und` "
+        "begonnen). Das 30B raeumt die Formulierung auf, nicht die "
+        "Entscheidung.",
+        "",
+        "**Der +Gewinn kommt aus allgemeiner Kompetenz, nicht aus dem "
+        "Distraktor:** saubere Formulierung (keine `und`-Anfaenge), korrekte "
+        "tiefe Antezedenten, Register. Genau das, wo die 3B-Basis schwach ist. "
+        "Die Distraktor-Entscheidung dagegen ist zwischen 3B und 30B praktisch "
+        "identisch.",
+        "",
+        "**Vorab-Prognose war „deutliche Distraktor-Besserung (Modellstaerke), "
+        "Rest ~gleich\". Gemessen das Gegenteil — Distraktor flach, Rest "
+        "besser. Die Prognose ist widerlegt und so festgehalten.**",
+        "",
+        "**Einsetzbarkeit:** median "
+        f"{fmt(lat(moe1), 1)}–{fmt(lat(moe2), 1)} s pro Rewrite, CPU-gebunden "
+        "(68/32-Split), 19 GB resident, verdraengt alles andere auf der "
+        "32-GB-Kiste. Kein gate-getriggerter Rewriter (der braucht die "
+        f"~{fmt(lat(base1), 1)} s des 3B) — nur fuer latenztolerante Rollen "
+        "(Batch/Offline).",
+        "",
+        "> **Fussnote zur Harness-Diskrepanz (3B-Basis 17 vs 13).** Der "
+        "Abschnitt „Der einsetzbare Weg\" weist die 3B-Basis mit 17/24 auf "
+        f"Holdout 2 aus, hier steht {b2.get('strict_pass')}/{b2.get('n')}. Kein "
+        "Widerspruch, andere Harness: dort `eval_hard.py` (transformers, "
+        "Qwen2.5-3B-Instruct in fp16), hier `eval_hard_ollama.py` (Ollama, "
+        "q4_K_M). fp16-transformers und q4-Ollama sind nicht dieselbe Maschine "
+        "— Quantisierung und Chat-Template-Details verschieben ein paar Faelle. "
+        "Deshalb stehen in DIESEM Abschnitt beide Modelle auf demselben "
+        "q4-Ollama-Treiber; nur so ist der 30B-Abstand ehrlich.",
+        "",
+        "### Folgeschritt: die Distraktor-Kategorie ist unterspezifiziert",
+        "",
+        "Dass ein 3B und ein 30B bei Vergleichs-Folgefragen dieselbe "
+        "Entscheidung treffen (beide Entitaeten nennen), heisst: die "
+        "Distraktor-Schwaeche war eine **Fallsatz-Praeferenz, kein "
+        "Modell-Gap.** Fuer einen Retrieval-Rewriter mit RRF-Fusion ist "
+        "`Nginx vs Apache Verbindungen` eine brauchbare Suchanfrage — die "
+        "`must_not_include`-Zusicherung kodiert eine Praeferenz (genau eine "
+        "Entitaet), die weder Modell teilt, dieselbe Fehlerklasse wie das "
+        "bereits korrigierte `dist-02`.",
+        "",
+        "**Konkreter Folgeschritt:** die Distraktor-Kategorie re-spezifizieren "
+        "— entscheiden, ob „beide nennen\" im Vergleichskontext bestehen soll, "
+        "und `must_not_include` entsprechend anpassen. **Danach alle "
+        "betroffenen Zahlen (3B, 9B v2/v3, 30B) einmal gegen die neue "
+        "Definition neu ausweisen** (der Bericht rescored bereits gegen die "
+        "aktuelle Falldefinition, die Neubewertung faellt also automatisch an, "
+        "sobald `eval_hard.jsonl`/`eval_hard2.jsonl` angepasst sind). Bis dahin "
+        "bleiben die Distraktor-Zahlen als „ungeloest, aber teils "
+        "Fallsatz-Artefakt\" markiert.",
+        "",
+    ]
+    return L
+
+
 def _hard_section(h: dict | None) -> list[str]:
     """Harter Eval — handgeschriebene Faelle mit Pro-Fall-Zusicherungen."""
     L = ["## Harter Eval 1: 24 handgeschriebene Faelle", "",
@@ -314,6 +442,10 @@ def main() -> None:
     h2_v3 = by_tag(hards, "v3_holdout2")
     h2_3b = by_tag(hards, "3b_rewrite_h2")      # qwen2.5:3b, all-positiv
     h2_3bneg = by_tag(hards, "3b_neg15_h2")     # qwen2.5:3b, 15 % Negative
+    moe_s1 = by_tag(hards, "qwen3_30b_a3b_2507")   # 30B-MoE, Satz 1 (Ollama)
+    moe_h2 = by_tag(hards, "qwen3_30b_holdout2")   # 30B-MoE, Holdout 2
+    base_s1 = by_tag(hards, "qwen25_3b_set1")      # 3B-Basis, gleicher Treiber
+    base_h2 = by_tag(hards, "qwen25_3b_holdout2")
 
     # v2-Verdikt aus den Zahlen ableiten, nicht behaupten
     if e_v2:
@@ -452,6 +584,7 @@ def main() -> None:
         *_hard_section(h_v2),
         *_holdout2_section(h2_v2, h2_v3),
         *_small_model_section(h2_3b, h2_3bneg),
+        *_moe_section(base_s1, moe_s1, base_h2, moe_h2),
         "## Training: LoRA auf Qwythos-9B (Basis > VRAM)",
         "",
         "| | mit Negativen | ohne Negative |",

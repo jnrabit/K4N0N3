@@ -1,6 +1,6 @@
 # K4N0N3 — Umbau 5: Trace-Pipeline, Qwythos-9B-Finetune, Eval-Harness
 
-*Generiert am 2026-07-22 14:10 von `bench/make_report5.py` — alle Zahlen stammen aus den JSONs unter `bench/results/`. Nicht von Hand editieren.*
+*Generiert am 2026-07-28 07:43 von `bench/make_report5.py` — alle Zahlen stammen aus den JSONs unter `bench/results/`. Nicht von Hand editieren.*
 
 ## Kernaussage
 
@@ -157,6 +157,39 @@ Der 9B laeuft auf dieser 8-GB-Karte nur ueber Offload — PCIe-4.0-x8-gebunden, 
 **Vorhergesagt waren ~19/24, gemessen 16/24 — die Hypothese ist widerlegt.** Damit ist der Negativ-Befund doppelt belegt: die synthetischen UNCHANGED-Negative helfen KEINEM Modell (sie verschlechterten schon den 9B). Sie sind konstruiert, nicht echt, und uebertragen nicht auf echte eigenstaendige Fragen. Echte Negative kann die Pipeline nicht sammeln — `is_referential()` faengt eigenstaendige Fragen vor dem Rewriter ab. Diese Gate-Grenze deckelt den Finetune-Ansatz.
 
 **Konsequenz fuer den Betrieb:** der Rewriter bleibt auf der unfinetunten `qwen2.5:3b` (bereits `rewrite_model`/`decompose_model` im Default) — resident, schnell, und so gut wie jeder Finetune hier. Der 9B-Finetune bleibt als belegte Faehigkeits-Demonstration (13→21 auf Holdout 2), nicht als Produktionsartefakt.
+
+## Groesseres Basismodell: loest ein 30B-MoE den Distraktor-Fall?
+
+Der einzige ungeloeste Fehler war der Distraktor-Fall (die Historie nennt zwei Entitaeten, gemeint ist eine). Antrainieren ging nicht, weil das Lehrer-Modell qwen2.5:3b selbst hedgt. Hypothese: ein deutlich staerkeres Basismodell bringt die Entscheidung schlicht mit. Getestet mit `qwen3:30b-a3b-instruct-2507` (q4, MoE, 3B aktiv/Token) gegen dieselbe 3B-Basis, **durch denselben Ollama-Treiber** (`bench/eval_hard_ollama.py`) auf **denselben** Faellen — die Bewertung (`build_messages`/`score`) ist unveraendert aus `eval_hard.py` importiert, nur der Modellaufruf ist neu. `--self-test` reproduziert die eingefrorene Skala (Ideal 24/24, Dump/Distraktor 0/24), bevor eine Modellzahl faellt.
+
+| Modell (q4, Ollama) | Satz 1 | Holdout 2 | Distraktor S1 | Distraktor H2 | Latenz/Rewrite |
+|---|---|---|---|---|---|
+| qwen2.5:3b (Basis) | 15/24 | 13/24 | 2/6 | 2/6 | 0.4 s |
+| **qwen3:30b-a3b-2507** | **19/24** | **18/24** | 3/6 | 2/6 | **48.0–51.2 s** |
+
+### Befund: das groessere Modell trifft dieselbe Entscheidung
+
+Das 30B ist gesamt klar besser (+4 auf Satz 1, +5 auf Holdout 2) — **aber nicht beim Distraktor.** Gepaart pro Fall nachgesehen: auf Holdout 2 versagen beide Modelle an **exakt denselben** Distraktor-Faellen (`h2-dist-01`, `h2-dist-02`, `h2-dist-03`, `h2-dist-06`) — und zwar mit derselben Antwort: beide nennen beide Entitaeten (`X im Vergleich zu Y`). Beispiele, 3B gegen 30B:
+
+- `h2-dist-01`  3B: `Wie viele Verbindungen kann Apache einerseits und Ng`  ·  30B: `Wie viele gleichzeitige Verbindungen kann Nginx im V`
+- `h2-dist-02`  3B: `Wie lang halten SSDs und HDDs im Dauerbetrieb?`  ·  30B: `Wie lange hält eine SSD im Dauerbetrieb im Vergleich`
+- `h2-dist-03`  3B: `Warum ist JSON fehleranfällig im Vergleich zu YAML?`  ·  30B: `Warum ist die Verwendung von JSON fehleranfällig im `
+
+Der eine Distraktor-Fall, den das 30B auf Satz 1 mehr besteht, war beim 3B gar kein Distraktor-Fehler, sondern ein Konjunktions-Anfang (`und wie persistiert Redis?` — Redis korrekt gewaehlt, nur mit `und` begonnen). Das 30B raeumt die Formulierung auf, nicht die Entscheidung.
+
+**Der +Gewinn kommt aus allgemeiner Kompetenz, nicht aus dem Distraktor:** saubere Formulierung (keine `und`-Anfaenge), korrekte tiefe Antezedenten, Register. Genau das, wo die 3B-Basis schwach ist. Die Distraktor-Entscheidung dagegen ist zwischen 3B und 30B praktisch identisch.
+
+**Vorab-Prognose war „deutliche Distraktor-Besserung (Modellstaerke), Rest ~gleich". Gemessen das Gegenteil — Distraktor flach, Rest besser. Die Prognose ist widerlegt und so festgehalten.**
+
+**Einsetzbarkeit:** median 48.0–51.2 s pro Rewrite, CPU-gebunden (68/32-Split), 19 GB resident, verdraengt alles andere auf der 32-GB-Kiste. Kein gate-getriggerter Rewriter (der braucht die ~0.4 s des 3B) — nur fuer latenztolerante Rollen (Batch/Offline).
+
+> **Fussnote zur Harness-Diskrepanz (3B-Basis 17 vs 13).** Der Abschnitt „Der einsetzbare Weg" weist die 3B-Basis mit 17/24 auf Holdout 2 aus, hier steht 13/24. Kein Widerspruch, andere Harness: dort `eval_hard.py` (transformers, Qwen2.5-3B-Instruct in fp16), hier `eval_hard_ollama.py` (Ollama, q4_K_M). fp16-transformers und q4-Ollama sind nicht dieselbe Maschine — Quantisierung und Chat-Template-Details verschieben ein paar Faelle. Deshalb stehen in DIESEM Abschnitt beide Modelle auf demselben q4-Ollama-Treiber; nur so ist der 30B-Abstand ehrlich.
+
+### Folgeschritt: die Distraktor-Kategorie ist unterspezifiziert
+
+Dass ein 3B und ein 30B bei Vergleichs-Folgefragen dieselbe Entscheidung treffen (beide Entitaeten nennen), heisst: die Distraktor-Schwaeche war eine **Fallsatz-Praeferenz, kein Modell-Gap.** Fuer einen Retrieval-Rewriter mit RRF-Fusion ist `Nginx vs Apache Verbindungen` eine brauchbare Suchanfrage — die `must_not_include`-Zusicherung kodiert eine Praeferenz (genau eine Entitaet), die weder Modell teilt, dieselbe Fehlerklasse wie das bereits korrigierte `dist-02`.
+
+**Konkreter Folgeschritt:** die Distraktor-Kategorie re-spezifizieren — entscheiden, ob „beide nennen" im Vergleichskontext bestehen soll, und `must_not_include` entsprechend anpassen. **Danach alle betroffenen Zahlen (3B, 9B v2/v3, 30B) einmal gegen die neue Definition neu ausweisen** (der Bericht rescored bereits gegen die aktuelle Falldefinition, die Neubewertung faellt also automatisch an, sobald `eval_hard.jsonl`/`eval_hard2.jsonl` angepasst sind). Bis dahin bleiben die Distraktor-Zahlen als „ungeloest, aber teils Fallsatz-Artefakt" markiert.
 
 ## Training: LoRA auf Qwythos-9B (Basis > VRAM)
 
