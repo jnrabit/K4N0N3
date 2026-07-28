@@ -113,26 +113,69 @@ class ZeroFlushModel:
     def prepare(self) -> None:
         self.layer_manager.prepare()
 
-    def generate(self, prompt: str, **gen_kwargs: Any) -> str:
+    def generate(self, prompt: str, *, speculative: bool = False,
+                 draft_model_name: str = "Qwen/Qwen2.5-0.5B",
+                 num_assistant_tokens: int | None = None,
+                 **gen_kwargs: Any) -> str:
         if not hasattr(self.model, "generate"):
             raise AttributeError(
                 f"Model '{self.model_name}' ({type(self.model).__name__}) "
                 f"has no generate() method. Use forward() instead, "
                 f"or load a causal LM (e.g. 'gpt2', 'meta-llama/Llama-*')."
             )
+        if speculative:
+            draft = self._get_draft(draft_model_name)
+            if num_assistant_tokens is not None:
+                # k fixieren, sonst passt HF ihn adaptiv an und die Messung
+                # ueber k wird unsauber.
+                draft.generation_config.num_assistant_tokens = num_assistant_tokens
+                draft.generation_config.num_assistant_tokens_schedule = "constant"
+            gen_kwargs["assistant_model"] = draft
         self._set_kv_cache_reserve(**gen_kwargs)
         self.prepare()
         inputs = self.tokenizer(prompt, return_tensors="pt")
         if "cuda" in self._device and torch.cuda.is_available():
             inputs = {k: v.to(self._device) for k, v in inputs.items()}
+        input_len = inputs["input_ids"].shape[1]
         with torch.no_grad():
             output_ids = self.model.generate(**inputs, **gen_kwargs)
+        # Nur die neu erzeugten Tokens — für den verlustfrei-Vergleich (V2)
+        self._last_new_token_ids = output_ids[0][input_len:].tolist()
         result = self.tokenizer.decode(output_ids[0], skip_special_tokens=True)
         self.layer_manager.memory.set_reserve(0)
         return result
 
+    def _get_draft(self, name: str):
+        """Lazy-lädt das Draft-Modell für spekulatives Decoding: VOLL GPU-
+        resident (fp16), gecacht. Hartes Kriterium: identisches Vokabular wie
+        das Ziel (Voraussetzung von HF assisted generation)."""
+        if getattr(self, "_draft", None) is not None and self._draft_name == name:
+            return self._draft
+        draft = AutoModelForCausalLM.from_pretrained(name, dtype=torch.float16)
+        draft.to("cuda").eval()
+        tgt_vocab = getattr(self.model.config, "vocab_size", None)
+        dft_vocab = getattr(draft.config, "vocab_size", None)
+        if tgt_vocab != dft_vocab:
+            raise ValueError(
+                f"Draft '{name}' Vokabular {dft_vocab} != Ziel {tgt_vocab}. "
+                "Assisted generation braucht identisches Vokabular — anderes "
+                "Draft-Modell derselben Familie wählen.")
+        self._draft = draft
+        self._draft_name = name
+        self._draft_reserve_bytes = sum(
+            p.numel() * p.element_size() for p in draft.parameters())
+        if self.verbose:
+            print(f"[K4N0N3] Draft {name} resident: "
+                  f"{self._draft_reserve_bytes / 1024**2:.0f} MB")
+        return self._draft
+
     def _set_kv_cache_reserve(self, **gen_kwargs: Any) -> None:
-        """Estimate KV-cache upper bound and reserve that VRAM budget."""
+        """Estimate KV-cache upper bound and reserve that VRAM budget.
+
+        Ein resident laufendes Draft-Modell (spekulativ) belegt zusätzlich VRAM,
+        das der MemoryManager nicht als Layer sieht — als fixe Reserve mitbuchen.
+        """
+        draft_reserve = getattr(self, "_draft_reserve_bytes", 0)
         cfg = self.model.config
         try:
             n_layers = getattr(cfg, "num_hidden_layers", 0) or 0
@@ -141,16 +184,18 @@ class ZeroFlushModel:
             max_len = gen_kwargs.get("max_length", gen_kwargs.get("max_new_tokens", 2048))
             dtype_size = 2  # float16
             kv_bytes = n_layers * 2 * n_kv_heads * head_dim * max_len * dtype_size
-            if kv_bytes > 0:
-                self.layer_manager.memory.set_reserve(kv_bytes)
+            reserve = kv_bytes + draft_reserve
+            if reserve > 0:
+                self.layer_manager.memory.set_reserve(reserve)
                 if self.verbose:
-                    print(f"[K4N0N3] KV-cache reserve: {kv_bytes / 1024**2:.0f} MB")
+                    print(f"[K4N0N3] Reserve: KV {kv_bytes / 1024**2:.0f} MB "
+                          f"+ Draft {draft_reserve / 1024**2:.0f} MB")
         except Exception:
-            # Fallback: 10% of budget
-            reserve = int(self.vram_budget_mb * 1024 * 1024 * 0.10)
+            # Fallback: 10% of budget + Draft
+            reserve = int(self.vram_budget_mb * 1024 * 1024 * 0.10) + draft_reserve
             self.layer_manager.memory.set_reserve(reserve)
             if self.verbose:
-                print(f"[K4N0N3] KV-cache reserve (fallback): {reserve / 1024**2:.0f} MB")
+                print(f"[K4N0N3] Reserve (fallback): {reserve / 1024**2:.0f} MB")
 
     def forward(self, prompt: str) -> torch.Tensor:
         self.prepare()

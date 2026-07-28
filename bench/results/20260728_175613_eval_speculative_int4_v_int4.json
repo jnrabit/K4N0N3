@@ -1,0 +1,68 @@
+{
+  "eval": true,
+  "speculative": {
+    "4": {
+      "tok_s": 2.277,
+      "forwards": 28,
+      "tokens": 64,
+      "forwards_per_token": 0.438,
+      "amortisierung_vs_baseline": 0.438,
+      "accepted_per_forward": 2.29,
+      "lossless": true,
+      "first_divergence_idx": null
+    },
+    "8": {
+      "tok_s": 3.06,
+      "forwards": 25,
+      "tokens": 64,
+      "forwards_per_token": 0.391,
+      "amortisierung_vs_baseline": 0.391,
+      "accepted_per_forward": 2.56,
+      "lossless": true,
+      "first_divergence_idx": null
+    },
+    "12": {
+      "tok_s": 2.995,
+      "forwards": 25,
+      "tokens": 64,
+      "forwards_per_token": 0.391,
+      "amortisierung_vs_baseline": 0.391,
+      "accepted_per_forward": 2.56,
+      "lossless": true,
+      "first_divergence_idx": null
+    }
+  },
+  "auftrag": "6V",
+  "config": {
+    "model": "Qwen/Qwen2.5-3B",
+    "draft": "Qwen/Qwen2.5-0.5B",
+    "quant": "int4",
+    "vram_budget_mb": 2048,
+    "max_new": 64,
+    "k": [
+      4,
+      8,
+      12
+    ],
+    "tag": "v_int4"
+  },
+  "git_commit": "772271e2eff01f1996db84e8584676e3d9dedf16-dirty",
+  "timestamp": "2026-07-28T17:56:13",
+  "expected_tok_s_preregistered": 3.0,
+  "baseline": {
+    "tokens": 64,
+    "wallclock_s": 47.61,
+    "forwards": 64,
+    "tok_s": 1.344,
+    "forwards_per_token": 1.0
+  },
+  "all_lossless": true,
+  "best_k": "8",
+  "best_tok_s": 3.06,
+  "reached_expectation": true,
+  "pcie_link_speed": "16.0 GT/s PCIe",
+  "pcie_link_width": "8",
+  "pcie_link_max_speed": "16.0 GT/s PCIe",
+  "pcie_link_max_width": "8",
+  "pcie_link_card": "card1"
+}

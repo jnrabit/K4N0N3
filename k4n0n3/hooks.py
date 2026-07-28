@@ -399,6 +399,9 @@ class LayerManager:
         def hook(module: torch.nn.Module, args):
             if not self._prepared:
                 self.prepare()
+            if self._layer_list and name == self._layer_list[0]:
+                global _layer0_fire_count
+                _layer0_fire_count += 1
             t0 = time.perf_counter()
             self.memory.mark_on_gpu(name, module, self._layer_gpu_bytes.get(name))
             self._ensure_on_gpu(name)
@@ -575,11 +578,23 @@ class LayerManager:
 # der Zaehler bleibt immer an, der Probe nullt ihn vor der Messung.
 _upload_copy_count = 0
 
+# V-Diagnose (Auftrag 6 V): Feuerungen des Pre-Hooks des ERSTEN Layers = Anzahl
+# voller Modell-Durchläufe. Geteilt durch erzeugte Tokens ergibt den
+# Amortisierungsfaktor (1,0 = ein Forward je Token, <1 = spekulativ gewonnen).
+_layer0_fire_count = 0
+
 
 def reset_upload_copy_count() -> int:
     """Gibt den bisherigen Zaehlerstand zurueck und setzt ihn auf 0."""
     global _upload_copy_count
     n, _upload_copy_count = _upload_copy_count, 0
+    return n
+
+
+def reset_layer0_fire_count() -> int:
+    """Feuerungen des ersten Layers seit dem letzten Reset; setzt auf 0."""
+    global _layer0_fire_count
+    n, _layer0_fire_count = _layer0_fire_count, 0
     return n
 
 
