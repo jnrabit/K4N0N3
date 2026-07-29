@@ -40,15 +40,26 @@ OLLAMA_URL = "http://localhost:11434/api/chat"
 
 
 def ollama_chat(model: str, messages: list[dict], num_predict: int,
-                think: bool, timeout: float) -> tuple[str, float]:
+                think: bool, timeout: float, seed: int | None = None,
+                num_ctx: int | None = None) -> tuple[str, float]:
     """Ein Chat-Turn, greedy. → (content, wallclock_s). think=False unterdrueckt
     den Denkmodus bei Hybrid-Modellen; bei reinen Instruct-Modellen ist der
-    Schluessel wirkungslos, schadet aber nicht."""
+    Schluessel wirkungslos, schadet aber nicht.
+
+    seed/num_ctx sind optional und werden nur gesetzt, wenn angegeben — so
+    bleiben fruehere Laeufe (ohne beides) mit demselben Kommando reproduzierbar.
+    Der Basismodell-Vergleich setzt beide explizit fuer alle Kandidaten gleich.
+    """
+    options: dict = {"temperature": 0.0, "num_predict": num_predict}
+    if seed is not None:
+        options["seed"] = seed
+    if num_ctx is not None:
+        options["num_ctx"] = num_ctx
     body: dict = {
         "model": model,
         "messages": messages,
         "stream": False,
-        "options": {"temperature": 0.0, "num_predict": num_predict},
+        "options": options,
     }
     if not think:
         body["think"] = False
@@ -63,8 +74,10 @@ def ollama_chat(model: str, messages: list[dict], num_predict: int,
 
 
 def generate(model: str, case: dict, num_predict: int, think: bool,
-             timeout: float) -> tuple[str, float]:
-    raw, dt = ollama_chat(model, build_messages(case), num_predict, think, timeout)
+             timeout: float, seed: int | None = None,
+             num_ctx: int | None = None) -> tuple[str, float]:
+    raw, dt = ollama_chat(model, build_messages(case), num_predict, think,
+                          timeout, seed, num_ctx)
     if think and "<think>" in raw and "</think>" not in raw:
         return f"<UNVOLLSTAENDIG> {raw[:100]}", dt
     return (strip_think(raw).strip() or f"<LEER> {raw[:100]}"), dt
@@ -77,6 +90,10 @@ def main() -> None:
     p.add_argument("--num-predict", type=int, default=64)
     p.add_argument("--timeout", type=float, default=180.0)
     p.add_argument("--think", action="store_true")
+    p.add_argument("--seed", type=int, default=None,
+                   help="Ollama-Sampling-Seed; ohne Angabe wie bisher ungesetzt")
+    p.add_argument("--num-ctx", type=int, default=None)
+    p.add_argument("--label", default="", help="Kandidaten-Kuerzel (A/B/C/D)")
     p.add_argument("--limit", type=int, default=0)
     p.add_argument("--self-test", action="store_true")
     p.add_argument("--tag", default="")
@@ -94,7 +111,8 @@ def main() -> None:
     preds: list[str] = []
     latencies: list[float] = []
     for c in cases:
-        pred, dt = generate(args.model, c, args.num_predict, args.think, args.timeout)
+        pred, dt = generate(args.model, c, args.num_predict, args.think,
+                            args.timeout, args.seed, args.num_ctx)
         preds.append(pred)
         latencies.append(dt)
         print(f"  {c['id']:16} {c['follow_up'][:30]!r} → {pred[:60]!r}  ({dt:.1f}s)",
