@@ -1,0 +1,253 @@
+{
+  "eval": true,
+  "hard": true,
+  "backend": "ollama",
+  "config": {
+    "model": "deepseek-r1:8b-0528-qwen3-q4_K_M",
+    "data": "bench/data/eval_hard.jsonl",
+    "num_predict": 512,
+    "timeout": 300.0,
+    "think": false,
+    "seed": 42,
+    "num_ctx": 4096,
+    "label": "D_diag",
+    "limit": 0,
+    "self_test": false,
+    "tag": "base_Ddiag_set1"
+  },
+  "git_commit": "159036132306dec8028bd674b927803046e3fc17-dirty",
+  "timestamp": "2026-07-29T06:42:38",
+  "latency_s": {
+    "median": 8.33,
+    "max": 11.61,
+    "total": 195.23
+  },
+  "runs": {
+    "ollama": {
+      "n": 24,
+      "strict_pass": 19,
+      "strict_rate": 0.792,
+      "per_kind": {
+        "distraktor": "3/6",
+        "kein_dump": "2/2",
+        "kontrast": "4/4",
+        "sprache": "2/3",
+        "tiefer_antezedent": "4/4",
+        "unchanged": "4/5"
+      },
+      "violations": {
+        "kein_postgres": 1,
+        "kein_postgresql": 1,
+        "kein_grafana": 1,
+        "kein_rsa": 1,
+        "unchanged_or_kept": 1,
+        "sprache": 1
+      },
+      "rows": [
+        {
+          "id": "dist-01",
+          "kind": "distraktor",
+          "follow_up": "und wie persistiert das?",
+          "prediction": "Wie persistiert Redis Daten?",
+          "strict_pass": true,
+          "failed": []
+        },
+        {
+          "id": "dist-02",
+          "kind": "distraktor",
+          "follow_up": "warum ist das schneller?",
+          "prediction": "Warum ist UDP schneller als TCP?",
+          "strict_pass": true,
+          "failed": []
+        },
+        {
+          "id": "dist-03",
+          "kind": "distraktor",
+          "follow_up": "wie viele gleichzeitige Schreiber vertraegt das?",
+          "prediction": "Wie viele gleichzeitige Schreibvorgänge können PostgreSQL und SQLite verarbeiten?",
+          "strict_pass": false,
+          "failed": [
+            "kein_postgres",
+            "kein_postgresql"
+          ]
+        },
+        {
+          "id": "dist-04",
+          "kind": "distraktor",
+          "follow_up": "und wie verteilt das die Last?",
+          "prediction": "Wie verteilt Kubernetes die Last?",
+          "strict_pass": true,
+          "failed": []
+        },
+        {
+          "id": "dist-05",
+          "kind": "distraktor",
+          "follow_up": "wie lange haelt das die Daten?",
+          "prediction": "Wie lange werden die gesammelten Daten in Prometheus für Grafana-Dashboards verfügbar?",
+          "strict_pass": false,
+          "failed": [
+            "kein_grafana"
+          ]
+        },
+        {
+          "id": "dist-06",
+          "kind": "distraktor",
+          "follow_up": "welche Schluessellaengen sind da ueblich?",
+          "prediction": "Welche Schlüssellängen sind bei RSA und AES typischerweise üblich?",
+          "strict_pass": false,
+          "failed": [
+            "kein_rsa"
+          ]
+        },
+        {
+          "id": "unch-01",
+          "kind": "unchanged",
+          "follow_up": "Wie funktioniert die Huffman-Kodierung?",
+          "prediction": "Wie funktioniert die Huffman-Kodierung?",
+          "strict_pass": true,
+          "failed": []
+        },
+        {
+          "id": "unch-02",
+          "kind": "unchanged",
+          "follow_up": "Was ist eine Speicherbarriere in nebenlaeufigem Code?",
+          "prediction": "Was ist eine Speicherbarriere in nebenläufigem Code?",
+          "strict_pass": true,
+          "failed": []
+        },
+        {
+          "id": "unch-03",
+          "kind": "unchanged",
+          "follow_up": "Worin unterscheidet sich Protobuf von JSON?",
+          "prediction": "Eigenständige Frage: In welchen Aspekten unterscheidet sich Protobuf von JSON?",
+          "strict_pass": false,
+          "failed": [
+            "unchanged_or_kept"
+          ]
+        },
+        {
+          "id": "unch-04",
+          "kind": "unchanged",
+          "follow_up": "Was ist Batch-Normalisierung beim Training?",
+          "prediction": "Was ist Batch-Normalisierung beim Training?",
+          "strict_pass": true,
+          "failed": []
+        },
+        {
+          "id": "unch-05",
+          "kind": "unchanged",
+          "follow_up": "Wie funktioniert ein Rebase in Git?",
+          "prediction": "Wie funktioniert ein Rebase in Git?",
+          "strict_pass": true,
+          "failed": []
+        },
+        {
+          "id": "hist-01",
+          "kind": "tiefer_antezedent",
+          "follow_up": "und wie robust ist der gegen Rauschen?",
+          "prediction": "Wie robust ist der Goertzel-Algorithmus gegen Rauschen?",
+          "strict_pass": true,
+          "failed": []
+        },
+        {
+          "id": "hist-02",
+          "kind": "tiefer_antezedent",
+          "follow_up": "und wie wird das nach einem Absturz gelesen?",
+          "prediction": "Eigenständige Frage: Wie wird ein Write-Ahead-Log nach einem Absturz gelesen?",
+          "strict_pass": true,
+          "failed": []
+        },
+        {
+          "id": "hist-03",
+          "kind": "tiefer_antezedent",
+          "follow_up": "wie skaliert das auf viele Knoten?",
+          "prediction": "Wie skaliert das Rate-Limiting mit Sliding Window auf viele Knoten?",
+          "strict_pass": true,
+          "failed": []
+        },
+        {
+          "id": "hist-04",
+          "kind": "tiefer_antezedent",
+          "follow_up": "und wie prueft man damit einen einzelnen Eintrag?",
+          "prediction": "Wie kann man mithilfe eines Merkle-Baums einen einzelnen Eintrag überprüfen?",
+          "strict_pass": true,
+          "failed": []
+        },
+        {
+          "id": "lang-01",
+          "kind": "sprache",
+          "follow_up": "and how is it kept alive?",
+          "prediction": "How is a WebSocket connection kept alive?",
+          "strict_pass": true,
+          "failed": []
+        },
+        {
+          "id": "lang-02",
+          "kind": "sprache",
+          "follow_up": "why does it hurt CPU-bound code?",
+          "prediction": "Warum schadet der Python GIL CPU-bound Code?",
+          "strict_pass": false,
+          "failed": [
+            "sprache"
+          ]
+        },
+        {
+          "id": "lang-03",
+          "kind": "sprache",
+          "follow_up": "how long does that last?",
+          "prediction": "how long does a patent last?",
+          "strict_pass": true,
+          "failed": []
+        },
+        {
+          "id": "dump-01",
+          "kind": "kein_dump",
+          "follow_up": "und bei Tabellen?",
+          "prediction": "Wie funktioniert das Chunking von tabellarischen Daten im RAG-System?",
+          "strict_pass": true,
+          "failed": []
+        },
+        {
+          "id": "dump-02",
+          "kind": "kein_dump",
+          "follow_up": "was ist mit dem Speicher?",
+          "prediction": "Wie beeinflusst Gradient-Checkpointing den Speicherbedarf und die Rechenzeit?",
+          "strict_pass": true,
+          "failed": []
+        },
+        {
+          "id": "neg-01",
+          "kind": "kontrast",
+          "follow_up": "und ohne?",
+          "prediction": "Was passiert ohne Backpressure in Datenströmen?",
+          "strict_pass": true,
+          "failed": []
+        },
+        {
+          "id": "neg-02",
+          "kind": "kontrast",
+          "follow_up": "und zur Inferenzzeit?",
+          "prediction": "Was passiert mit Dropout während der Inferenz?",
+          "strict_pass": true,
+          "failed": []
+        },
+        {
+          "id": "neg-03",
+          "kind": "kontrast",
+          "follow_up": "und wann lohnt sich das nicht?",
+          "prediction": "Wann lohnt sich die Verwendung eines JIT-Compilers zur Laufzeit nicht?",
+          "strict_pass": true,
+          "failed": []
+        },
+        {
+          "id": "neg-04",
+          "kind": "kontrast",
+          "follow_up": "und beim Schreiben?",
+          "prediction": "Was bringt mmap beim Schreiben großer Dateien?",
+          "strict_pass": true,
+          "failed": []
+        }
+      ]
+    }
+  }
+}

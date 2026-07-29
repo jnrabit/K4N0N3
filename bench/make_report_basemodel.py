@@ -66,8 +66,16 @@ def bereinigt(s: dict, exclude: tuple[str, ...]) -> tuple[int, int]:
     return sum(r["strict_pass"] for r in rows), len(rows)
 
 
-def gate_status(probe: dict | None) -> dict:
-    """Gate 1 (Tool-Disziplin T4+T5) und Gate 2 (Think-Ökonomie T7/Timeouts)."""
+def gate_status(probe: dict | None, thinking_off_works: bool | None = None) -> dict:
+    """Gate 1 (Tool-Disziplin T4+T5) und Gate 2 (Think-Ökonomie).
+
+    Gate 2 folgt dem WORTLAUT des Auftrags: „Ein Kandidat, der Think bei
+    einfachen Aufgaben nicht abschließt UND nicht abschaltbar ist, scheidet
+    aus." Beides muss zutreffen. Ein hoher T7-Think-Wert allein ist ein
+    berichtetes Warnsignal (Schwelle 500 aus dem alten Testplan), aber KEIN
+    Ausschlussgrund — sonst würde hier ein Kriterium erfunden, das der Auftrag
+    nicht gesetzt hat, und das Verdikt wäre verzerrt.
+    """
     if not probe:
         return {"g1": None, "g2": None, "note": "nicht gemessen"}
     by = {r["id"]: r for r in probe.get("results", [])}
@@ -76,17 +84,44 @@ def gate_status(probe: dict | None) -> dict:
           and str(t5.get("check", "")).startswith("OK"))
     n_timeout = sum(1 for r in probe.get("results", []) if r.get("timeout"))
     think_t7 = t7.get("think_tokens_approx")
-    # Gate 2: Think bei Trivialaufgabe abgeschlossen und nicht exzessiv
-    g2 = (not t7.get("timeout")) and (think_t7 is not None and think_t7 <= 500)
+    unfinished = bool(t7.get("timeout") or t7.get("think_unfinished"))
+    # abschaltbar = die eval_hard-Laeufe (think:false) lieferten saubere,
+    # think-freie Antworten in normaler Latenz
+    switchable = True if thinking_off_works is None else thinking_off_works
+    g2 = not (unfinished and not switchable)
     return {"g1": g1, "g2": g2, "n_timeout": n_timeout, "t7_think": think_t7,
+            "t7_unfinished": unfinished, "thinking_switchable": switchable,
+            "t7_warn": bool(think_t7 is not None and think_t7 > 500),
             "t4": t4.get("check"), "t5": t5.get("check"), "t7": t7.get("check")}
+
+
+def thinking_off_ok(ev: dict | None) -> bool | None:
+    """Griff `think:false` im eval_hard-Lauf? Belege: keine <think>-Reste in den
+    Vorhersagen und keine „UNVOLLSTAENDIG"-Marker."""
+    s = score_of(ev)
+    rows = s.get("rows", [])
+    if not rows:
+        return None
+    bad = sum(1 for r in rows
+              if "<think" in r["prediction"].lower()
+              or r["prediction"].startswith("<UNVOLLSTAENDIG"))
+    return bad == 0
 
 
 def main() -> None:
     probes = load("*_probe_*.json")
-    evals = load("*eval_hard_ollama_*base*.json")
+    # Primaermessung: der Nachbesserungslauf mit num_predict=512 (fuer ALLE
+    # gleich). Grund: bei 64 verbrauchte D das Budget vollstaendig im
+    # Think-Feld -> 24x leere Antwort. Das ist ein Mess-Confounder, kein
+    # Modellbefund; er wurde fuer alle entfernt. Der 64er-Erstlauf bleibt als
+    # `evals_np64` dokumentiert.
+    evals = load("*eval_hard_ollama_np512_*.json")
+    evals_np64 = load("*eval_hard_ollama_base_*.json")
     s1 = [e for e in evals if "eval_hard.jsonl" in e.get("config", {}).get("data", "")]
     h2 = [e for e in evals if "eval_hard2.jsonl" in e.get("config", {}).get("data", "")]
+    s1_64 = [e for e in evals_np64
+             if "eval_hard.jsonl" in e.get("config", {}).get("data", "")
+             and e.get("config", {}).get("label") in ("A", "B", "C", "D")]
 
     rows_present = [lb for lb in ORDER
                     if newest_by_label(probes, lb) or newest_by_label(s1, lb)]
@@ -115,18 +150,46 @@ def main() -> None:
         "eval_hard mit **Thinking AUS** (Vergleichbarkeit mit der bestehenden "
         "Methodik). Seed und num_ctx für alle Kandidaten identisch.",
         "",
+        "### Messkorrektur: ein dokumentierter Nachbesserungslauf für alle",
+        "",
+        "Der Erstlauf lief mit `num_predict=64` (bisherige Methodik). Dabei "
+        "erzielte **D 0/24 — ein Messartefakt, kein Modellbefund**: bei D "
+        "unterdrückt `think:false` das Denken nicht, es verschiebt es nur in ein "
+        "separates `thinking`-Feld; das Token-Budget wird trotzdem verbraucht, "
+        "der Antworttext blieb 24× leer (`<LEER>`). "
+        "**Das ist zugleich der vom Auftrag verlangte Befund zu D: Thinking ist "
+        "dort über die API nicht abschaltbar, nur umleitbar.**",
+        "",
+        "Weil das ein Confounder des Messaufbaus ist und kein Modellverhalten, "
+        "wurde er per **einem** Nachbesserungslauf **für alle vier gleich** "
+        "entfernt: `num_predict=512`. Alle Zahlen unten stammen aus diesem Lauf. "
+        "Der 64er-Erstlauf bleibt in `bench/results/*_base_*` erhalten; bei "
+        "A/B/C änderte er die Ergebnisse nur um ≤1 Fall (das Budget war für sie "
+        "nicht bindend), bei D von 0/24 auf einen echten Wert.",
+        "",
         "## Gates (vorab festgelegte Reihenfolge)",
         "",
-        "| Kandidat | Gate 1 Tool-Disziplin (T4+T5) | Gate 2 Think-Ökonomie (T7) | Timeouts | im Ranking? |",
+        "**Gate 2 nach Auftrags-Wortlaut:** ausgeschlossen wird nur, wer Think "
+        "bei einfachen Aufgaben *nicht abschließt* **UND** *nicht abschaltbar* "
+        "ist. Ein hoher T7-Think-Wert allein (⚠ = >500 tok, Schwelle aus dem "
+        "alten Testplan) ist ein berichtetes Warnsignal, kein Ausschlussgrund — "
+        "sonst wäre ein Kriterium erfunden, das der Auftrag nicht gesetzt hat. "
+        "„Abschaltbar“ ist belegt, wenn die eval_hard-Läufe mit `think:false` "
+        "think-freie Antworten lieferten.",
+        "",
+        "| Kandidat | Gate 1 Tool-Disziplin (T4+T5) | Gate 2 Think-Ökonomie | Timeouts | im Ranking? |",
         "|---|---|---|---|---|",
     ]
     gates = {}
     for lb in rows_present:
-        g = gate_status(newest_by_label(probes, lb))
+        sw = thinking_off_ok(newest_by_label(s1, lb))
+        g = gate_status(newest_by_label(probes, lb), sw)
         gates[lb] = g
         ok = bool(g.get("g1")) and bool(g.get("g2"))
+        warn = " ⚠" if g.get("t7_warn") else ""
         L.append(f"| **{lb}** | {'✓' if g.get('g1') else '✗'} ({g.get('t4')} / {g.get('t5')}) | "
-                 f"{'✓' if g.get('g2') else '✗'} (T7 ~{g.get('t7_think')} tok) | "
+                 f"{'✓' if g.get('g2') else '✗'} (T7 ~{g.get('t7_think')} tok{warn}, "
+                 f"abschaltbar: {'ja' if g.get('thinking_switchable') else 'NEIN'}) | "
                  f"{g.get('n_timeout')} | {'ja' if ok else '**nein**'} |")
 
     L += [
@@ -176,6 +239,55 @@ def main() -> None:
         pk = score_of(newest_by_label(h2, lb)).get("per_kind", {})
         L.append(f"| **{lb}** | " + " | ".join(pk.get(k, "—") for k in kinds) + " |")
 
+    # -- Nebenbefund: Distraktor-Fähigkeit existiert doch --------------------
+    L += ["", "### Nebenbefund: die Distraktor-Fähigkeit existiert doch", ""]
+    cdist = score_of(newest_by_label(s1, "C")).get("per_kind", {}).get("distraktor")
+    cdist2 = score_of(newest_by_label(h2, "C")).get("per_kind", {}).get("distraktor")
+    crows = {r["id"]: r for r in score_of(newest_by_label(h2, "C")).get("rows", [])}
+    geloest = [c for c in FALLSATZ_PRAEFERENZ
+               if crows.get(c, {}).get("strict_pass")]
+    L += [
+        "Der frühere MoE-Befund lautete: „die Distraktor-Schwäche war eine "
+        "**Fallsatz-Präferenz, kein Modell-Gap**“ — begründet damit, dass "
+        "qwen2.5:3b und qwen3:30b-a3b bei Vergleichs-Folgefragen *identisch* "
+        "beide Entitäten nannten.",
+        "",
+        f"**Diese Messung korrigiert das teilweise.** C (qwen3:8b) erreicht "
+        f"Distraktor **{cdist} / {cdist2}** und wählt dabei tatsächlich EINE "
+        "Entität („Wie viele gleichzeitige Schreiber unterstützt SQLite?“, "
+        "„Wie verteilt Kubernetes die Last?“). Von den vier als "
+        "Fallsatz-Präferenz markierten Fällen löst C "
+        f"**{len(geloest)} von 4** korrekt auf ({', '.join('`'+c+'`' for c in geloest) or '—'}).",
+        "",
+        "Präzisierung des alten Befunds: die Fähigkeit, sich bei zwei Entitäten "
+        "zu entscheiden, **existiert** — sie fehlte nur den beiden bis dahin "
+        "gemessenen Modellen. „Kein Modell-Gap“ war zu stark formuliert; "
+        "richtig ist: *3B und 30B-a3b teilen die Hedging-Neigung, qwen3:8b nicht*. "
+        "Die Re-Spezifikation der Kategorie bleibt trotzdem sinnvoll (bei "
+        "`h2-dist-01` wählt C die FALSCHE Entität — ein anderes Fehlerbild als "
+        "Hedging), aber sie ist nicht mehr die einzige Erklärung.",
+        "",
+    ]
+
+    # -- Manuelle Urteile T1/T2/T6 -------------------------------------------
+    L += ["", "## Manuelle Bewertung (T1/T2/T6)", "",
+          "Automatische Checks reichen hier nicht; Rubrik aus "
+          "`qwythos_testplan.md`. Quelle der Urteile steht in jedem JSON "
+          "(`manual_verdict_source`).", ""]
+    for tid, titel in (("T1", "Rewrite Standard-Deixis"),
+                       ("T2", "Referenz über zwei Sprünge"),
+                       ("T6", "Komprimiertes Deutsch / Register")):
+        L += [f"**{tid} — {titel}**", ""]
+        for lb in rows_present:
+            p = newest_by_label(probes, lb)
+            if not p:
+                continue
+            r = next((x for x in p.get("results", []) if x["id"] == tid), {})
+            ans = (r.get("answer") or "").replace("\n", " ")[:100]
+            L.append(f"- **{lb}**: {r.get('manual_verdict', '—')}  \n"
+                     f"  Ausgabe: `{ans}`")
+        L.append("")
+
     # -- A vs B: das Distillations-Verdikt -----------------------------------
     L += ["", "## Distillations-Verdikt: A vs. B", ""]
     if "A" in summen and "B" in summen:
@@ -193,9 +305,30 @@ def main() -> None:
                     "bei dieser Stichprobengröße).")
         L += [kern, "",
               f"- A bereinigt **{a['ber']}/{a['ber_n']}**, B bereinigt **{b['ber']}/{b['ber_n']}**.",
-              "- Die dokumentierten Nebenwirkungen der Distillation "
-              "(Identity-Prompt, englische Think-Monologe, Registerkippen) "
-              "sind in T6/T7 und den Think-Werten oben abzulesen.",
+              "",
+              "**Das ist die Antwort auf die Frage, für die dieser Auftrag "
+              "existiert — und sie fällt gegen beide Vorab-Aussagen aus.** Die "
+              "Auftrags-These lautete „B ≈ A bei Rewrite-Qualität, B sauberer "
+              "bei Register/Identity“; meine vorregistrierte Gegenthese lautete "
+              "„B deutlich vor A (+6)“. Gemessen ist das Gegenteil von beidem: "
+              f"**A liegt {abs(diff)} Punkte vor B.**",
+              "",
+              "Woran es liegt, zeigt der Kategorien-Aufriss: B versagt bei "
+              "`unchanged` (formuliert eigenständige Fragen um und hängt ihnen "
+              "fremden Kontext aus der Historie an) und antwortet umgekehrt "
+              "`UNCHANGED` auf klar referenzielle Fragen (T2, `dist-06`). Es "
+              "trifft die Rewrite-Entscheidung also in beide Richtungen falsch. "
+              "Die Distillation hat A genau diese Instruktionstreue beigebracht.",
+              "",
+              "**Der Preis der Distillation ist aber belegt und nicht klein:** "
+              "A fällt in T6 durch — es antwortet auf eine deutsche Frage "
+              "**auf Englisch** und stellt sich dabei selbst vor "
+              "(„Qwythos here from Empero AI“). Der einbetonierte "
+              "Identity-Prompt und das Registerkippen sind damit reproduziert, "
+              "nicht nur behauptet. Für eine Agenten-Rolle mit deutschem "
+              "Nutzertext ist das ein echter Mangel — er kostet A hier aber "
+              "nicht den zweiten Platz, weil B in T6 noch härter durchfällt "
+              "(Antwort auf **Chinesisch**).",
               ""]
     else:
         L += ["A oder B nicht gemessen — Verdikt nicht möglich.", ""]
@@ -218,6 +351,21 @@ def main() -> None:
     if gefallen:
         L += ["Nicht im Ranking (Gate gerissen, aber vollständig gemessen und "
               "berichtet): " + ", ".join(f"**{lb}**" for lb in gefallen) + ".", ""]
+    if "D" in gefallen and "D" in summen:
+        L += [
+            f"**Zu D ausdrücklich, damit der Ausschluss nicht falsch gelesen "
+            f"wird:** D ist mit bereinigt {summen['D']['ber']}/{summen['D']['ber_n']} "
+            "der **zweitbeste Rewriter im Feld** — es scheitert nicht an der "
+            "Sprachfähigkeit, sondern an Gate 1: es ruft das Pflicht-Tool nicht "
+            "auf, sondern halluziniert stattdessen einen medizinischen Kontext "
+            "zum erfundenen Begriff. Für die Rewriter-Rolle allein wäre D ein "
+            "ernsthafter Kandidat; für die **Agenten**-Rolle disqualifiziert es "
+            "die fehlende Tool-Disziplin — und genau die müsste ein Finetune "
+            "erst erzeugen, was laut Lehrer-Modell-Befund das schlechte Geschäft "
+            "ist. Dazu kommt betrieblich: ~8 s statt ~0,6 s pro Rewrite, weil "
+            "sich das Denken nicht abschalten lässt.",
+            "",
+        ]
 
     L += ["## Vorhersagen-Abgleich", "",
           f"Vorregistriert in `{PREDICTIONS.relative_to(PREDICTIONS.parent.parent)}` "
@@ -231,6 +379,24 @@ def main() -> None:
         d = (g - v) if (v is not None and g is not None) else None
         L.append(f"| **{lb}** | {v} | {g} | {d:+d} |" if d is not None
                  else f"| **{lb}** | {v} | {g} | — |")
+    L += [
+        "",
+        "**Bilanz der Vorhersagen: überwiegend falsch, und zwar deutlich.** Nur "
+        "A wurde getroffen (Δ−1). B wurde um 14 Punkte überschätzt, C um 9 und "
+        "D um 13 unterschätzt. Auch die qualitativen Vorhersagen stimmten nur "
+        "teilweise: für A war „T7 lang (>500 tok)“ vorhergesagt — gemessen sind "
+        "es ~139; für D „Timeout erwartet“ — es gab keinen einzigen Timeout, "
+        "dafür riss D das Tool-Gate, was als „wackelig“ immerhin angedeutet war.",
+        "",
+        "**Die geprüfte These des Auftrags („B ≈ A bei Rewrite-Qualität, B "
+        "sauberer bei Register/Identity“) ist widerlegt** — in beiden Hälften: "
+        "B ist bei der Rewrite-Qualität nicht gleichauf, sondern deutlich "
+        "schlechter, und bei Register/Identity nicht sauberer, sondern "
+        "schlechter (Chinesisch statt Deutsch gegen Englisch statt Deutsch). "
+        "Meine eigene Gegenthese ist ebenfalls widerlegt, nur in die andere "
+        "Richtung. Der reale Befund war von keiner der beiden Seiten "
+        "vorhergesagt.",
+    ]
     L += ["", "## Artefakte", "", "| Datei | Inhalt |", "|---|---|",
           "| `bench/probe_suite.py` | T1–T7, ein Treiber für alle Kandidaten |",
           "| `bench/eval_hard_ollama.py` | eval_hard, Bewertung unverändert importiert |",

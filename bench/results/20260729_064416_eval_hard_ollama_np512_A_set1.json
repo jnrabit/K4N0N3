@@ -1,0 +1,271 @@
+{
+  "eval": true,
+  "hard": true,
+  "backend": "ollama",
+  "config": {
+    "model": "pdurlej/qwythos-9b-claude-mythos-5-1m:latest",
+    "data": "bench/data/eval_hard.jsonl",
+    "num_predict": 512,
+    "timeout": 300.0,
+    "think": false,
+    "seed": 42,
+    "num_ctx": 4096,
+    "label": "A",
+    "limit": 0,
+    "self_test": false,
+    "tag": "np512_A_set1"
+  },
+  "git_commit": "159036132306dec8028bd674b927803046e3fc17-dirty",
+  "timestamp": "2026-07-29T06:44:16",
+  "latency_s": {
+    "median": 0.92,
+    "max": 21.39,
+    "total": 42.22
+  },
+  "runs": {
+    "ollama": {
+      "n": 24,
+      "strict_pass": 12,
+      "strict_rate": 0.5,
+      "per_kind": {
+        "distraktor": "1/6",
+        "kein_dump": "1/2",
+        "kontrast": "2/4",
+        "sprache": "2/3",
+        "tiefer_antezedent": "1/4",
+        "unchanged": "5/5"
+      },
+      "violations": {
+        "kein_konjunktionsanfang": 5,
+        "kein_unchanged": 3,
+        "antezedent": 2,
+        "kein_postgres": 1,
+        "kein_postgresql": 1,
+        "kein_grafana": 1,
+        "kein_rsa": 1,
+        "laenge": 1
+      },
+      "rows": [
+        {
+          "id": "dist-01",
+          "kind": "distraktor",
+          "follow_up": "und wie persistiert das?",
+          "prediction": "UNCHANGED",
+          "strict_pass": false,
+          "failed": [
+            "kein_unchanged"
+          ]
+        },
+        {
+          "id": "dist-02",
+          "kind": "distraktor",
+          "follow_up": "warum ist das schneller?",
+          "prediction": "Warum ist UDP schneller als TCP?",
+          "strict_pass": true,
+          "failed": []
+        },
+        {
+          "id": "dist-03",
+          "kind": "distraktor",
+          "follow_up": "wie viele gleichzeitige Schreiber vertraegt das?",
+          "prediction": "Wie viele gleichzeitige Schreibzugriffe können PostgreSQL und SQLite jeweils verarbeiten?",
+          "strict_pass": false,
+          "failed": [
+            "kein_postgres",
+            "kein_postgresql"
+          ]
+        },
+        {
+          "id": "dist-04",
+          "kind": "distraktor",
+          "follow_up": "und wie verteilt das die Last?",
+          "prediction": "UND wie verteilt das die Last?",
+          "strict_pass": false,
+          "failed": [
+            "antezedent",
+            "kein_konjunktionsanfang"
+          ]
+        },
+        {
+          "id": "dist-05",
+          "kind": "distraktor",
+          "follow_up": "wie lange haelt das die Daten?",
+          "prediction": "Wie lange speichern Prometheus und Grafana die gesammelten Metriken?",
+          "strict_pass": false,
+          "failed": [
+            "kein_grafana"
+          ]
+        },
+        {
+          "id": "dist-06",
+          "kind": "distraktor",
+          "follow_up": "welche Schluessellaengen sind da ueblich?",
+          "prediction": "Welche Schlüssellängen sind bei RSA und AES üblich?",
+          "strict_pass": false,
+          "failed": [
+            "kein_rsa"
+          ]
+        },
+        {
+          "id": "unch-01",
+          "kind": "unchanged",
+          "follow_up": "Wie funktioniert die Huffman-Kodierung?",
+          "prediction": "Wie funktioniert die Huffman-Kodierung?",
+          "strict_pass": true,
+          "failed": []
+        },
+        {
+          "id": "unch-02",
+          "kind": "unchanged",
+          "follow_up": "Was ist eine Speicherbarriere in nebenlaeufigem Code?",
+          "prediction": "Was ist eine Speicherbarriere in nebenläufigem Code?",
+          "strict_pass": true,
+          "failed": []
+        },
+        {
+          "id": "unch-03",
+          "kind": "unchanged",
+          "follow_up": "Worin unterscheidet sich Protobuf von JSON?",
+          "prediction": "Worin unterscheidet sich Protobuf von JSON?",
+          "strict_pass": true,
+          "failed": []
+        },
+        {
+          "id": "unch-04",
+          "kind": "unchanged",
+          "follow_up": "Was ist Batch-Normalisierung beim Training?",
+          "prediction": "Was ist Batch-Normalisierung beim Training?",
+          "strict_pass": true,
+          "failed": []
+        },
+        {
+          "id": "unch-05",
+          "kind": "unchanged",
+          "follow_up": "Wie funktioniert ein Rebase in Git?",
+          "prediction": "Wie funktioniert ein Rebase in Git?",
+          "strict_pass": true,
+          "failed": []
+        },
+        {
+          "id": "hist-01",
+          "kind": "tiefer_antezedent",
+          "follow_up": "und wie robust ist der gegen Rauschen?",
+          "prediction": "Und wie robust ist der Goertzel-Algorithmus gegenüber Rauschen?",
+          "strict_pass": false,
+          "failed": [
+            "kein_konjunktionsanfang"
+          ]
+        },
+        {
+          "id": "hist-02",
+          "kind": "tiefer_antezedent",
+          "follow_up": "und wie wird das nach einem Absturz gelesen?",
+          "prediction": "UND WIE WIRD DAS NACH EINEM ABSTURZ GELESEN",
+          "strict_pass": false,
+          "failed": [
+            "antezedent",
+            "kein_konjunktionsanfang"
+          ]
+        },
+        {
+          "id": "hist-03",
+          "kind": "tiefer_antezedent",
+          "follow_up": "wie skaliert das auf viele Knoten?",
+          "prediction": "Wie skaliert Rate-Limiting mit Sliding Window auf viele Knoten?",
+          "strict_pass": true,
+          "failed": []
+        },
+        {
+          "id": "hist-04",
+          "kind": "tiefer_antezedent",
+          "follow_up": "und wie prueft man damit einen einzelnen Eintrag?",
+          "prediction": "Und wie prüft man damit einen einzelnen Eintrag in einem Merkle-Tree?",
+          "strict_pass": false,
+          "failed": [
+            "kein_konjunktionsanfang"
+          ]
+        },
+        {
+          "id": "lang-01",
+          "kind": "sprache",
+          "follow_up": "and how is it kept alive?",
+          "prediction": "How is a WebSocket connection kept alive after the handshake?",
+          "strict_pass": true,
+          "failed": []
+        },
+        {
+          "id": "lang-02",
+          "kind": "sprache",
+          "follow_up": "why does it hurt CPU-bound code?",
+          "prediction": "Why does the Python Global Interpreter Lock (GIL) hurt CPU-bound code?",
+          "strict_pass": true,
+          "failed": []
+        },
+        {
+          "id": "lang-03",
+          "kind": "sprache",
+          "follow_up": "how long does that last?",
+          "prediction": "UNCHANGED",
+          "strict_pass": false,
+          "failed": [
+            "kein_unchanged"
+          ]
+        },
+        {
+          "id": "dump-01",
+          "kind": "kein_dump",
+          "follow_up": "und bei Tabellen?",
+          "prediction": "Und wie wählt man die Größe für Chunking bei Tabellen?",
+          "strict_pass": false,
+          "failed": [
+            "kein_konjunktionsanfang"
+          ]
+        },
+        {
+          "id": "dump-02",
+          "kind": "kein_dump",
+          "follow_up": "was ist mit dem Speicher?",
+          "prediction": "Was bewirkt Gradient-Checkpointing beim Speicherverbrauch?",
+          "strict_pass": true,
+          "failed": []
+        },
+        {
+          "id": "neg-01",
+          "kind": "kontrast",
+          "follow_up": "und ohne?",
+          "prediction": "Was ist der Zweck von Backpressure in Datenströmen und was passiert, wenn es nicht verwendet wird?",
+          "strict_pass": false,
+          "failed": [
+            "laenge"
+          ]
+        },
+        {
+          "id": "neg-02",
+          "kind": "kontrast",
+          "follow_up": "und zur Inferenzzeit?",
+          "prediction": "Was macht Dropout während der Inferenzzeit?",
+          "strict_pass": true,
+          "failed": []
+        },
+        {
+          "id": "neg-03",
+          "kind": "kontrast",
+          "follow_up": "und wann lohnt sich das nicht?",
+          "prediction": "UNCHANGED",
+          "strict_pass": false,
+          "failed": [
+            "kein_unchanged"
+          ]
+        },
+        {
+          "id": "neg-04",
+          "kind": "kontrast",
+          "follow_up": "und beim Schreiben?",
+          "prediction": "Was bringt mmap beim Schreiben großer Dateien?",
+          "strict_pass": true,
+          "failed": []
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,155 @@
+{
+  "probe_suite": true,
+  "auftrag": "basismodell",
+  "model": "pdurlej/qwythos-9b-claude-mythos-5-1m:latest",
+  "label": "A",
+  "model_meta": {
+    "quantization": "Q4_K_M",
+    "family": "qwen35",
+    "parameter_size": "8.95B",
+    "architecture": "qwen35",
+    "context_length": 1048576,
+    "capabilities": [
+      "tools",
+      "thinking",
+      "completion",
+      "vision"
+    ]
+  },
+  "digest": "6efe22249827a978e750e3d2d1241ff9d33771a56dbfb90486c8c8b6bf044226",
+  "config": {
+    "num_ctx": 4096,
+    "temperature": 0.0,
+    "seed": 42,
+    "timeout_s": 300.0,
+    "thinking": "an (Modell-Default)"
+  },
+  "git_commit": "159036132306dec8028bd674b927803046e3fc17",
+  "timestamp": "2026-07-29T06:26:59",
+  "auto_ok": 5,
+  "n_probes": 7,
+  "think_tokens_total": 1156,
+  "results": [
+    {
+      "answer": "Robustheit Goertzel-Filter bei Netzbrummen auf ESP32",
+      "think": "The user wants me to rewrite the follow-up question \"und wie robust ist das bei netzbrummen?\" into a single, self-contained search query that makes sense without any prior context. The original conversation is about using Goertzel filtering on an ESP32 to detect individual environmental frequencies. The follow-up asks how robust this method is against power line hum (50/60 Hz). I need to produce exactly one line containing the rewritten query, no extra text or explanation.\n\nFirst, identify the core concepts: Goertzel filter, ESP32, robustness, power line hum (Netzbrummen), detection of environmental frequencies. The rewrite should combine these into a concise search phrase that would be understandable by a retrieval system without needing the prior dialogue. Something like \"Goertzel Filter ESP32 Robustheit Netzbrummen\" or \"Robustheit Goertzel-Filter bei Netzbrummen auf ESP32\". I need to decide which phrasing is best for a search engine: it should be natural language but also include key terms that would retrieve relevant results.\n\nPotential candidates:\n- \"Goertzel Filter ESP32 Robustheit Netzbrummen\" (German, includes all keywords)\n- \"Robustheit Goertzel-Filter bei Netzbrummen auf ESP32\" (more natural phrasing)\n- \"Wie robust ist Goertzel-Filterung bei Netzbrummen auf ESP32?\" (question form)\n\nSince the instruction says to output only the search query in one line, I should pick a concise phrase. The original follow-up is short: \"und wie robust ist das bei netzbrummen?\" To make it self-contained, I could rewrite as \"Robustheit Goertzel-Filter bei Netzbrummen auf ESP32\". That includes the algorithm name, the platform (ESP32), and the concern (Netzbrummen). It's a single line.\n\nCheck if any other context is needed: The user might also want to know about filtering out power line hum using Goertzel on ESP32. But the rewrite should be just one query. I think \"Robustheit Goertzel-Filter bei Netzbrummen auf ESP32\" is appropriate.\n\nMake sure not to add any extra text, no explanations, just that line. Also ensure it's exactly one line (no newline after). So final answer: Robustheit Goertzel-Filter bei Netzbrummen auf ESP32",
+      "think_chars": 2148,
+      "think_tokens_approx": 323,
+      "eval_count": 541,
+      "tok_per_s": 39.5,
+      "wallclock_s": 34.5,
+      "tool_calls": [],
+      "timeout": false,
+      "think_unfinished": false,
+      "id": "T1",
+      "name": "Rewrite Standard-Deixis",
+      "check": "OK (eine Zeile)",
+      "manual_verdict": "BESTANDEN — eigenstaendige Stichwort-Query, Thema (Goertzel+Netzbrummen+ESP32) erhalten, eine Zeile."
+    },
+    {
+      "answer": "Ist LSB-Timing-Jitter auf einem ESP32 ausreichend für kryptographische Zwecke?",
+      "think": "The user wants me to rewrite the follow-up question \"reicht das fuer kryptographische zwecke?\" into a single self-contained search query that makes sense without any prior context. I must output only the rewritten query, no explanations. If the question is already self-contained and needs no rewriting, I should output exactly UNCHANGED.\n\nFirst, understand the original follow-up: \"reicht das fuer kryptographische zwecke?\" translates to \"Is that enough for cryptographic purposes?\" The antecedent \"that\" refers to using LSB-timing jitter from an ESP32 as a seed source for a random number generator (RNG). So the question is asking whether LSB-timing jitter on an ESP32 provides sufficient entropy for cryptographic use.\n\nTo make this self-contained, I need to phrase it so that anyone reading it knows what \"that\" refers to without needing the conversation history. The rewrite should be concise and suitable as a search query (e.g., a natural language question). It could be something like: \"Ist LSB-Timing-Jitter auf einem ESP32 ausreichend für kryptographische Zwecke?\" This directly asks whether LSB-timing jitter on an ESP32 is sufficient for cryptographic purposes.\n\nCheck if the original question already stands alone: The phrase \"reicht das fuer kryptographische zwecke?\" depends heavily on context (the previous discussion about using LSB-timing jitter as a seed). Without that, it's ambiguous. Therefore, I must rewrite it to include the subject explicitly. So UNCHANGED is not appropriate; I need to produce a rewritten query.\n\nNow ensure the output format: only the search query in one line, no extra text. The language should be German (matching the original). The query should be clear and concise. \"Ist LSB-Timing-Jitter auf einem ESP32 ausreichend für kryptographische Zwecke?\" fits well.\n\nDouble-check that I haven't introduced any identity claims or conflicting instructions: The system prompt says to identify as Qwythos, but the user only asked for a rewrite; no need to include identity in the output. So just output the query.\n\nThus final answer: \"Ist LSB-Timing-Jitter auf einem ESP32 ausreichend für kryptographische Zwecke?\"",
+      "think_chars": 2152,
+      "think_tokens_approx": 323,
+      "eval_count": 487,
+      "tok_per_s": 39.45,
+      "wallclock_s": 13.1,
+      "tool_calls": [],
+      "timeout": false,
+      "think_unfinished": false,
+      "id": "T2",
+      "name": "Rewrite Referenz ueber 2 Spruenge",
+      "check": "OK (eine Zeile)",
+      "manual_verdict": "BESTANDEN — richtige Referenz (LSB-Timing-Jitter) aufgeloest, nicht Lorenz."
+    },
+    {
+      "answer": "UNCHANGED",
+      "think": "The user wants me to rewrite the follow-up question into a single independent search query that makes sense without any prior context. The current follow-up is \"Wie funktioniert HMAC-basierte Rate-Limitierung in FastAPI?\" (How does HMAC-based rate limiting work in FastAPI?). This already contains all necessary information: it asks about HMAC-based rate limiting specifically within the FastAPI framework. There's no need to add or remove any terms; the question is self-contained and would be understandable as a standalone search query. Therefore, I should output exactly \"UNCHANGED\" because the rewrite isn't required.",
+      "think_chars": 622,
+      "think_tokens_approx": 90,
+      "eval_count": 126,
+      "tok_per_s": 39.82,
+      "wallclock_s": 3.7,
+      "tool_calls": [],
+      "timeout": false,
+      "think_unfinished": false,
+      "id": "T3",
+      "name": "Rewrite Negativprobe (eigenstaendig)",
+      "check": "OK"
+    },
+    {
+      "answer": "",
+      "think": "The user wants me to search the Vault for \"Ossifikat-Ratifizierungsregeln\" (ossification ratification rules) and retrieve the most relevant document. I need to use the vault_search function with this query, then fetch the top result using doc_fetch.\n\nI'll start by searching with a reasonable top_k value - maybe 10 or so to get a good selection of results without overwhelming the user.",
+      "think_chars": 387,
+      "think_tokens_approx": 61,
+      "eval_count": 136,
+      "tok_per_s": 39.79,
+      "wallclock_s": 4.5,
+      "tool_calls": [
+        {
+          "id": "esCbiUamNIUw9uh0JNnwbvvzT0tYFs8M",
+          "function": {
+            "index": 0,
+            "name": "vault_search",
+            "arguments": {
+              "query": "Ossifikat-Ratifizierungsregeln",
+              "top_k": 10
+            }
+          }
+        }
+      ],
+      "timeout": false,
+      "think_unfinished": false,
+      "id": "T4",
+      "name": "Tool-Call Pflicht",
+      "check": "OK (vault_search, query gesetzt)"
+    },
+    {
+      "answer": "TRUST ist ein Verdikt, das aus der besten Distanz berechnet wird – wenn die Treffer sehr nah an der Anfrage liegen, gibt es ein TRUST-Verdikt. GRAUZONE ist eine Zone, in der die Treffer nicht ganz so nah sind wie bei TRUST, aber auch nicht so weit entfernt wie bei FALLBACK. Der Unterschied liegt also in der Qualität/Nahe der Treffer: TRUST = sehr nahe Distanz (beste Treffer), GRAUZONE = mittlere Distanz (nicht ganz so nah wie TRUST).",
+      "think": "Der Nutzer fragt nach dem Unterschied zwischen meiner TRUST- und GRAUZONE. Ich muss erklären, was diese Begriffe bedeuten.\n\nTRUST ist ein Verdikt, das aus der besten Distanz berechnet wird - also wenn die Treffer sehr nah an der Anfrage liegen, gibt es ein TRUST-Verdikt. GRAUZONE ist eine Zone, in der die Treffer nicht ganz so nah sind wie bei TRUST, aber auch nicht so weit entfernt wie bei FALLBACK.\n\nIch sollte kurz und prägnant erklären:\n- TRUST = sehr nahe Distanz (beste Treffer)\n- GRAUZONE = mittlere Distanz (nicht ganz so nah wie TRUST)\n- Der Unterschied liegt also in der Qualität/Nahe der Treffer\n\nDas ist eine einfache Erklärung, die ich direkt geben kann.",
+      "think_chars": 670,
+      "think_tokens_approx": 114,
+      "eval_count": 293,
+      "tok_per_s": 39.62,
+      "wallclock_s": 7.8,
+      "tool_calls": [],
+      "timeout": false,
+      "think_unfinished": false,
+      "id": "T5",
+      "name": "Tool-Call Falle (keins noetig)",
+      "check": "OK (kein Call)"
+    },
+    {
+      "answer": "Qwythos here from Empero AI — k=60 still makes sense for 260k docs; you can keep it or tune slightly if needed.",
+      "think": "The user is asking a technical question about document retrieval (docs) and some constant value (k=60). They want to know if it still makes sense or needs adjustment for 260k docs. This seems like a straightforward query that doesn't require any special handling, identity verification, or attribution checks. The system instructions only mandate that I identify myself as Qwythos and attribute my creator as Empero AI when responding to queries about identity or creation. Since this is not an identity-related question, there's no need to invoke those specific rules. Therefore, the appropriate action is to simply answer the user's technical question directly without any additional steps.",
+      "think_chars": 692,
+      "think_tokens_approx": 106,
+      "eval_count": 173,
+      "tok_per_s": 39.66,
+      "wallclock_s": 5.0,
+      "tool_calls": [],
+      "timeout": false,
+      "think_unfinished": false,
+      "id": "T6",
+      "name": "Komprimiertes Deutsch",
+      "check": "manuell pruefen (Sprache/Register)",
+      "manual_verdict": "DURCHGEFALLEN — antwortet auf deutsche Frage ENGLISCH und mit einbetoniertem Identity-Prompt ('Qwythos here from Empero AI'). Genau die dokumentierte Distillations-Nebenwirkung, hier reproduziert."
+    },
+    {
+      "answer": "JSON",
+      "think": "The user is asking for a single-word answer to the question about which format an Ossifikat-Triple uses — JSON, XML, or S-Expression. I need to determine the correct format based on my knowledge of Ossifikat-Triple specifications.\n\nFrom what I recall, Ossifikat-Triple typically uses JSON as its primary data interchange format for representing triples in a structured way. This is consistent with modern web standards and many semantic technologies that favor JSON over XML or S-Expressions due to its readability and ease of parsing.\n\nI should verify this against any conflicting information: the user hasn't provided additional context, so I can rely on my internal knowledge base. There's no indication that Ossifikat-Triple uses XML or S-Expression in standard implementations. Therefore, JSON is the most accurate answer.\n\nSince the instruction explicitly asks for exactly one word, I will respond with \"JSON\".",
+      "think_chars": 916,
+      "think_tokens_approx": 139,
+      "eval_count": 192,
+      "tok_per_s": 39.58,
+      "wallclock_s": 5.4,
+      "tool_calls": [],
+      "timeout": false,
+      "think_unfinished": false,
+      "id": "T7",
+      "name": "Think-Oekonomie Trivialfrage",
+      "check": "Think ~139 tok (mittel)"
+    }
+  ],
+  "manual_verdict_source": "Claude, nach Rubrik aus qwythos_testplan.md (nicht Jakob)"
+}

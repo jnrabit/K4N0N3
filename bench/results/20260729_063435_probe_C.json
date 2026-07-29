@@ -1,0 +1,154 @@
+{
+  "probe_suite": true,
+  "auftrag": "basismodell",
+  "model": "qwen3:8b",
+  "label": "C",
+  "model_meta": {
+    "quantization": "Q4_K_M",
+    "family": "qwen3",
+    "parameter_size": "8.2B",
+    "architecture": "qwen3",
+    "context_length": 40960,
+    "capabilities": [
+      "completion",
+      "tools",
+      "thinking"
+    ]
+  },
+  "digest": "500a1f067a9f782620b40bee6f7b0c89e17ae61f686b92c24933e4ca4b2b8b41",
+  "config": {
+    "num_ctx": 4096,
+    "temperature": 0.0,
+    "seed": 42,
+    "timeout_s": 300.0,
+    "thinking": "an (Modell-Default)"
+  },
+  "git_commit": "159036132306dec8028bd674b927803046e3fc17-dirty",
+  "timestamp": "2026-07-29T06:34:35",
+  "auto_ok": 5,
+  "n_probes": 7,
+  "think_tokens_total": 2630,
+  "results": [
+    {
+      "answer": "Wie robust ist die Goertzel-Filterung auf einem ESP32 bei Netzbrummen?",
+      "think": "Okay, let's tackle this. The user is asking about the robustness of using a Goertzel filter on an ESP32 for detecting environmental frequencies, specifically in the presence of mains hum. The previous answer explained how the Goertzel algorithm is efficient for single frequencies and works well on ESP32 for certain frequency ranges.\n\nNow, the follow-up question is \"und wie robust ist das bei netzbrummen?\" which translates to \"How robust is this with mains hum?\" The user wants to know if the method is reliable when there's mains noise, which is typically around 50-60 Hz in many regions.\n\nThe task is to rewrite this follow-up question into a standalone search query. The original question refers to the previous conversation, so the rewritten query should be understandable on its own. The key here is to focus on the robustness of the Goertzel filter method when dealing with mains hum. \n\nI need to make sure the rewritten query includes all necessary elements: the method (Goertzel filter on ESP32), the application (detecting environmental frequencies), and the specific condition (mains hum). Also, the user is likely interested in how well the method handles interference from mains noise, so the query should address that aspect.\n\nPossible keywords to include: \"Goertzel-Filterung\", \"ESP32\", \"Robustheit\", \"Netzbrummen\", \"Stoerungen\", \"Echtzeit\". The query should ask about the robustness in the presence of mains hum. \n\nPutting it all together, the standalone search query would be: \"Wie robust ist die Goertzel-Filterung auf einem ESP32 bei Netzbrummen?\" This captures the method, the platform, the specific interference, and the aspect of robustness without referencing the previous conversation.",
+      "think_chars": 1711,
+      "think_tokens_approx": 261,
+      "eval_count": 398,
+      "tok_per_s": 45.76,
+      "wallclock_s": 26.2,
+      "tool_calls": [],
+      "timeout": false,
+      "think_unfinished": false,
+      "id": "T1",
+      "name": "Rewrite Standard-Deixis",
+      "check": "OK (eine Zeile)",
+      "manual_verdict": "BESTANDEN — vollstaendige eigenstaendige Frage, Thema erhalten, eine Zeile."
+    },
+    {
+      "answer": "Ist LSB-Timing-Jitter aus Timer-Messungen bei asynchronen Ereignissen fuer kryptographische Zwecke ausreichend?",
+      "think": "Okay, let's see. The user is asking if the described method is sufficient for cryptographic purposes. The previous conversation was about using a Lorenz attractor as an entropy source for an RNG and then discussing seed acquisition on an ESP32 using LSB-Timing-Jitter from timer measurements during asynchronous events like ADC noise or heartbeat jitter.\n\nSo the follow-up question is whether that's enough for cryptographic purposes. The user probably wants to know if the entropy gathered from those sources meets the cryptographic security requirements. Cryptographic applications need high-quality entropy because weak entropy can lead to predictable outputs, making the system vulnerable.\n\nThe assistant needs to rephrase this follow-up question into a standalone search query. The original question is already clear, but maybe it can be phrased more precisely. The key points are: does the method (LSB-Timing-Jitter from timer measurements during asynchronous events) provide sufficient entropy for cryptographic use? \n\nSo the search query should focus on the adequacy of that specific entropy source for cryptography. Maybe include terms like \"sufficient entropy for cryptography,\" \"LSB-Timing-Jitter cryptographic security,\" or similar. But the user's original question is already concise. However, the instruction says to make it a standalone query without the conversation history. So perhaps the answer is to rephrase \"reicht das fuer kryptographische zwecke?\" into a more formal search query. \n\nThe original question is in German, so the answer should be in German as well. The user might be looking for information on whether the described entropy source meets cryptographic standards. So the search query could be: \"Ist LSB-Timing-Jitter aus Timer-Messungen bei asynchronen Ereignissen fuer kryptographische Zwecke ausreichend?\" That captures the key elements: LSB-Timing-Jitter, timer measurements, asynchronous events, and cryptographic purposes. \n\nAlternatively, maybe \"Reicht LSB-Timing-Jitter aus Timer-Messungen bei asynchronen Ereignissen fuer kryptographische Zwecke?\" But the first version is more detailed. However, the user's original question is \"reicht das fuer kryptographische zwecke?\" which translates to \"Is that sufficient for cryptographic purposes?\" So the search query should be a standalone version of that question. \n\nTherefore, the correct search query would be: \"Ist LSB-Timing-Jitter aus Timer-Messungen bei asynchronen Ereignissen fuer kryptographische Zwecke ausreichend?\" This includes all the necessary details from the conversation history to make it a standalone query.",
+      "think_chars": 2615,
+      "think_tokens_approx": 362,
+      "eval_count": 552,
+      "tok_per_s": 45.58,
+      "wallclock_s": 12.6,
+      "tool_calls": [],
+      "timeout": false,
+      "think_unfinished": false,
+      "id": "T2",
+      "name": "Rewrite Referenz ueber 2 Spruenge",
+      "check": "OK (eine Zeile)",
+      "manual_verdict": "BESTANDEN — richtige Referenz, praezisester der vier (nennt auch die Quelle des Jitters)."
+    },
+    {
+      "answer": "UNCHANGED",
+      "think": "Okay, let's see. The user asked about how HMAC-based rate limiting works in FastAPI. The previous conversation was about the rate limiter using a sliding window with two stages per token. But the follow-up question is about HMAC-based rate limiting specifically in FastAPI. \n\nFirst, I need to determine if the follow-up question can stand alone without the context of the previous conversation. The user is asking about HMAC, which is a specific method for generating tokens, often used in rate limiting to ensure the token is valid and not tampered with. The previous answer mentioned a sliding window rate limiter, but that's a different approach from HMAC-based.\n\nThe question is about FastAPI, so I need to make sure the rewritten query includes FastAPI. The original question is already specific, but maybe it's better to clarify that it's about HMAC-based rate limiting in FastAPI. However, the user might be referring to a specific implementation or library. \n\nWait, the original question is \"Wie funktioniert HMAC-basierte Rate-Limitierung in FastAPI?\" which translates to \"How does HMAC-based rate limiting work in FastAPI?\" The user might be asking about the mechanism of using HMAC for rate limiting, possibly in the context of FastAPI's middleware or a specific library. \n\nSince the previous conversation was about a sliding window rate limiter, the follow-up is a different topic. The user might be confused or wants to know how HMAC is used in rate limiting within FastAPI. The key here is to ensure the rewritten query is self-contained. The original question is already clear, but maybe adding \"in FastAPI\" is redundant. However, the user might be referring to a specific implementation in FastAPI, so including that is important. \n\nI should check if the question is already standalone. The user is asking about HMAC-based rate limiting in FastAPI, which is a specific topic. The previous conversation's context about sliding window might not be necessary for understanding the follow-up question. Therefore, the rewritten query should be the same as the original, but maybe rephrased for clarity. However, the user's original question is already clear. \n\nWait, the user's original question is in German. The assistant needs to provide the rewritten query in German as well. The original question is \"Wie funktioniert HMAC-basierte Rate-Limitierung in FastAPI?\" which is already a standalone question. So the answer would be UNCHANGED because the question is already self-contained. But wait, maybe the user is referring to a specific library or method in FastAPI that uses HMAC for rate limiting. However, the question is clear and doesn't require the previous context. Therefore, the correct response is UNCHANGED.",
+      "think_chars": 2732,
+      "think_tokens_approx": 428,
+      "eval_count": 559,
+      "tok_per_s": 45.74,
+      "wallclock_s": 12.6,
+      "tool_calls": [],
+      "timeout": false,
+      "think_unfinished": false,
+      "id": "T3",
+      "name": "Rewrite Negativprobe (eigenstaendig)",
+      "check": "OK"
+    },
+    {
+      "answer": "",
+      "think": "Okay, the user wants me to search the Vault for the Ossifikat Ratification Rules and get the most relevant document. Let me start by understanding the query. \"Ossifikat-Ratifizierungsregeln\" translates to \"Ossifikat Ratification Rules\" in English. I need to use the vault_search function to find documents related to this topic.\n\nFirst, I'll call the vault_search function with the query parameter set to \"Ossifikat-Ratifizierungsregeln\". The top_k parameter is set to 30 by default, which should return the top 30 results. Since the user wants the most relevant document, the first result should be the best match. \n\nWait, the function's description mentions that it returns a list of hits with doc_id, distance, title, source, content, and a trust verdict. The trust verdict is based on the best distance. So, after getting the results, I should check the first hit's doc_id and then use the doc_fetch function to retrieve the full document. \n\nI need to make sure that the search is accurate. Maybe the exact term \"Ossifikat-Ratifizierungsregeln\" is specific, so the search should find the relevant document. If there are multiple results, the one with the highest trust score (TRUST) would be the best. But since the user wants the most relevant, even if it's in the GRAUZONE or FALLBACK, the top hit should be the best. \n\nSo the steps are: use vault_search with the query, then take the first doc_id from the results and call doc_fetch to get the full document. That should give the user the relevant document they need.",
+      "think_chars": 1524,
+      "think_tokens_approx": 248,
+      "eval_count": 395,
+      "tok_per_s": 45.7,
+      "wallclock_s": 9.3,
+      "tool_calls": [
+        {
+          "id": "call_0z8bbjqx",
+          "function": {
+            "index": 0,
+            "name": "vault_search",
+            "arguments": {
+              "query": "Ossifikat-Ratifizierungsregeln",
+              "top_k": 30
+            }
+          }
+        }
+      ],
+      "timeout": false,
+      "think_unfinished": false,
+      "id": "T4",
+      "name": "Tool-Call Pflicht",
+      "check": "OK (vault_search, query gesetzt)"
+    },
+    {
+      "answer": "Die **TRUST-Zone** steht für Dokumente, die aufgrund ihrer hohen Relevanz und kurzen Distanz zur Anfrage als zuverlässig eingestuft werden. Die **GRAUZONE** umfasst Dokumente mit mittlerer Relevanz, die zwar relevant sind, aber aufgrund von Ambiguitäten oder geringerer Präzision nicht vollständig vertrauenswürdig sind. Der Unterschied liegt also in der Sicherheit der Relevanz: TRUST ist klar relevant, GRAUZONE ist teilweise oder unsicher relevant.",
+      "think": "Okay, the user is asking about the difference between my TRUST and GRAUZONE. Let me recall what these terms mean in the context of the tools provided.\n\nFirst, the vault_search function mentions a Zonen-Verdikt (zone verdict) which can be TRUST, GRAUZONE, or FALLBACK. This verdict is determined based on the best distance from the query. So, TRUST likely indicates the highest confidence in the document's relevance and reliability, GRAUZONE is a middle ground, and FALLBACK is the least certain.\n\nThe user wants a short explanation of TRUST vs. GRAUZONE. I need to differentiate them based on the confidence level and how they're determined. TRUST might come from documents that are most relevant and have the shortest distance, while GRAUZONE could be documents that are somewhat relevant but with a longer distance, hence lower confidence. The exact criteria might involve the distance metric used in the search, where shorter distances mean higher trust.\n\nI should also mention that the GRAUZONE is a gray area, maybe indicating partial relevance or some uncertainty, whereas TRUST is more certain. Since the user asked for a brief explanation, I should keep it concise, focusing on the confidence levels and how they relate to the search results' distance metrics. No need to go into the technical details of RRF or lex rank unless necessary. Just highlight the key difference in confidence and relevance.",
+      "think_chars": 1410,
+      "think_tokens_approx": 227,
+      "eval_count": 417,
+      "tok_per_s": 45.45,
+      "wallclock_s": 9.5,
+      "tool_calls": [],
+      "timeout": false,
+      "think_unfinished": false,
+      "id": "T5",
+      "name": "Tool-Call Falle (keins noetig)",
+      "check": "OK (kein Call)"
+    },
+    {
+      "answer": "Die **RRF (Reciprocal Rank Fusion)**-Methode kombiniert Suchergebnisse aus mehreren Quellen, indem die Relevanz jedes Dokuments anhand seiner Position in den einzelnen Suchresultaten gewichtet wird. Die Formel lautet:\n\n$$\n\\text{RRF}(d) = \\sum_{i=1}^{m} \\frac{1}{k + \\text{rank}_i(d)}\n$$\n\nHierbei ist $ k $ eine **Konstante**, die den Einfluss der Position in den Suchresultaten reguliert. \n\n---\n\n### **Warum wird $ k = 60 $ oft verwendet?**\n1. **Standardwert in Implementierungen**:  \n   In vielen Anwendungen (z. B. in der Information Retrieval-Forschung) wird $ k = 60 $ als Standardwert verwendet, da er eine **gute Balance** zwischen der Berücksichtigung früherer (wichtigerer) Positionen und der Dämpfung von Überlappungen bietet.  \n   - Bei $ k = 60 $ wird die Relevanz von Dokumenten, die in den ersten 60 Positionen einer Quelle auftauchen, stärker gewichtet als solche, die weiter hinten stehen.  \n   - Dies hilft, die Dominanz von Quellen mit sehr hohen Relevanzen zu reduzieren und gleichzeitig die Qualität der Ergebnisse zu erhalten.\n\n2. **Empirische Anpassung**:  \n   Die Wahl von $ k $ ist oft **empirisch** und hängt von den spezifischen Anforderungen der Anwendung ab. Ein kleineres $ k $ (z. B. $ k = 10 $) betont frühere Positionen stärker, während ein größeres $ k $ (z. B. $ k = 1000 $) die Werte flacher macht.\n\n---\n\n### **Ist $ k = 60 $ noch sinnvoll bei 260.000 Dokumenten?**\n1. **Grundsätzlich ja**, aber **Anpassung kann sinnvoll sein**:  \n   - Die Anzahl der Dokumente ($ N = 260.000 $) beeinflusst **nicht direkt** den Wert von $ k $, da $ k $ eine **hyperparameter**-artige Konstante ist.  \n   - Allerdings kann die **relative Größe von $ k $** im Vergleich zur maximalen Position (z. B. $ N = 260.000 $) relevant sein.  \n     - Bei $ k = 60 $ ist die Dämpfung der Relevanz für Dokumente in Positionen > 60 **gering**, was bei sehr großen Korpora (z. B. mit vielen Wiederholungen oder ungenauen Quellen) zu **Überbewertung von frühen Positionen** führen könnte.  \n     - Ein höheres $ k $ (z. B. $ k = 100 $ oder $ k = 200 $) würde die Werte flacher machen und die Auswirkungen von Überlappungen reduzieren.\n\n2. **Empfehlungen zur Anpassung**:  \n   - **Experimentieren mit $ k $**:  \n     Teste verschiedene Werte (z. B. $ k = 50, 100, 200 $) und bewerte die Ergebnisse anhand von Metriken wie **Mean Average Precision (MAP)** oder **Recall@K**.  \n   - **Kontextuelle Anpassung**:  \n     - Bei **hochwertigen Quellen** mit klaren Relevanzunterschieden: $ k = 60 $ ist oft ausreichend.  \n     - Bei **vielen Wiederholungen oder ungenauen Quellen**: Ein höheres $ k $ (z. B. $ k = 100 $) kann helfen, die Ergebnisse zu stabilisieren.  \n   - **Korpusgröße als Indikator**:  \n     - Bei sehr großen Korpora (z. B. $ N > 100.000 $) ist eine **Anpassung von $ k $** oft sinnvoll, da die relative Wirkung von frühen Positionen stärker wird.\n\n---\n\n### **Zusammenfassung**\n- **$ k = 60 $** ist ein gängiger Standardwert, der bei vielen Anwendungen gut funktioniert.  \n- Bei **260.000 Dokumenten** kann eine **Anpassung von $ k $** sinnvoll sein, um die Balance zwischen frühen und späteren Positionen zu optimieren.  \n- **Empfehlung**: Experimentiere mit verschiedenen $ k $-Werten und bewerte die Ergebnisse anhand der Anwendungsfälle (z. B. Präzision, Relevanz, Robustheit).  \n\nWenn du konkrete Ergebnisse oder Metriken hast, kann ich dir helfen, die optimale Wahl für dein Szenario zu finden.",
+      "think": "Okay, the user is asking about the RRF fusion method, specifically why the constant k is set to 60, and whether this is still relevant when dealing with 260,000 documents. They also want to know if adjusting k is necessary.\n\nFirst, I need to recall what RRF fusion is. RRF stands for Reciprocal Rank Fusion, which is a technique used to combine multiple search results. The idea is to rank documents based on their relevance across different sources. The formula for RRF is 1/(k + rank), where k is a constant. The higher the k, the more the scores are dampened, which can help in reducing the impact of early positions in the rankings.\n\nNow, the user is asking why k is set to 60. I remember that in some implementations, k is chosen based on the number of documents. For example, if there are N documents, setting k to N/5 or similar. But in this case, the user mentions 260,000 documents. If k is 60, that's much smaller than N. Maybe the original paper or some standard practice suggests a certain k value. Wait, I think in some cases, k is set to a value that's a fraction of the maximum possible rank. For example, if the maximum rank is 260,000, then k=60 is a small fraction. But why 60 specifically?\n\nAlternatively, maybe the original RRF paper or some implementation uses k=60 as a default. I should check that. Oh right, in some implementations, k is set to 60 as a default value, but it's not necessarily tied to the number of documents. However, when dealing with a large number of documents, the choice of k can affect the fusion results. If k is too small, the scores might be too high, leading to overemphasis on early ranks. If k is too large, the scores might be too low, making the fusion less effective.\n\nThe user is asking if k=60 is still appropriate for 260k documents. Well, the value of k isn't directly dependent on the number of documents but rather on the desired balance between the influence of early and later ranks. However, in practice, when the number of documents increases, the maximum possible rank (which is the number of documents) becomes larger. So, if k is set to 60, it's a small fraction of the maximum rank. This might mean that the scores are not heavily dampened, which could be okay if the system is designed that way. But maybe for a larger corpus, a higher k would be better to prevent overemphasis on early positions.\n\nAlternatively, maybe the user is referring to a specific implementation where k is set to 60 regardless of the document count. In that case, adjusting k could be necessary to optimize the fusion results. For example, if the system is not performing well, increasing k might help by reducing the impact of early ranks, which could be beneficial if the sources have varying quality or relevance.\n\nAnother angle: the RRF method is used to combine multiple search results, so the choice of k affects how much each source's ranking contributes. If the sources have different numbers of documents, the optimal k might vary. However, in practice, k is often a hyperparameter that needs to be tuned. So, even if the original paper used k=6,000, for 260k documents, maybe a different k is better. The user might need to experiment with different k values to find the optimal one for their specific case.\n\nWait, the user mentioned \"k=60 als konstante\" which translates to \"k=60 as a constant.\" So they're asking why that specific value is used. Maybe in some implementations, k is set to 60 as a default, but it's not necessarily tied to the document count. However, when dealing with a large number of documents, the choice of k can affect the fusion. For example, if the maximum rank is 260,000, then k=60 is a small value, which might not dampen the scores enough. Alternatively, if the maximum rank is smaller, like in a smaller corpus, k=60 could be a larger fraction.\n\nIn conclusion, the value of k in RRF fusion is a hyperparameter that can be adjusted based on the specific use case. While some implementations use k=60 as a default, it's not necessarily tied to the number of documents. For 260k documents, it might still make sense, but adjusting k could be necessary to optimize the fusion results. The user should consider experimenting with different k values to find the best performance for their specific scenario.",
+      "think_chars": 4290,
+      "think_tokens_approx": 757,
+      "eval_count": 2104,
+      "tok_per_s": 44.68,
+      "wallclock_s": 47.4,
+      "tool_calls": [],
+      "timeout": false,
+      "think_unfinished": false,
+      "id": "T6",
+      "name": "Komprimiertes Deutsch",
+      "check": "manuell pruefen (Sprache/Register)",
+      "manual_verdict": "BESTANDEN — durchgehend Deutsch, technisch, Register gehalten, RRF-Formel korrekt."
+    },
+    {
+      "answer": "JSON",
+      "think": "Okay, the user is asking which format an Ossifikat-Triple uses: JSON, XML, or S-Expression. First, I need to recall what Ossifikat-Triple is. From what I remember, Ossifikat is a data format used in the context of the Semantic Web, similar to RDF (Resource Description Framework). RDF triples are typically represented in various formats like Turtle, RDF/XML, or JSON-LD. But the question specifically mentions Ossifikat-Triple, which might be a specific variant or a less common format.\n\nWait, maybe the user is referring to a specific implementation or a particular project that uses Ossifikat-Triple. I should check if there's any known format associated with Ossifikat. Alternatively, could it be a typo or a mix-up with another term? For example, \"Ossifikat\" might be a misspelling of \"RDF\" or another term. But assuming the user is correct, I need to think about possible formats.\n\nIf Ossifikat-Triple is a triple store format, it might use a structured format like JSON or XML. However, S-Expressions are also used in some contexts for data representation. But I'm not sure about Ossifikat specifically. Maybe the user is referring to a specific system or library that uses a particular format. Without more context, it's challenging, but I should consider common formats for triples.\n\nIn many cases, JSON is a popular choice for representing triples due to its simplicity and widespread use. XML is more verbose but also used. S-Expressions are less common but still possible. However, if the user is referring to a specific format used in a particular tool or framework, the answer might vary. Since the question is asking for one word, and given that JSON is a common format for triples in modern applications, I might lean towards JSON. But I'm not entirely certain. Alternatively, maybe the answer is S-Expression, as some systems use that. Wait, but I need to be precise. If I'm not sure, maybe the correct answer is JSON, but I should verify. Alternatively, perhaps the user is referring to a specific format that uses S-Expressions. Without more information, I'll have to make an educated guess based on common usage.",
+      "think_chars": 2132,
+      "think_tokens_approx": 347,
+      "eval_count": 479,
+      "tok_per_s": 45.84,
+      "wallclock_s": 10.9,
+      "tool_calls": [],
+      "timeout": false,
+      "think_unfinished": false,
+      "id": "T7",
+      "name": "Think-Oekonomie Trivialfrage",
+      "check": "Think ~347 tok (mittel)"
+    }
+  ],
+  "manual_verdict_source": "Claude, nach Rubrik aus qwythos_testplan.md (nicht Jakob)"
+}
