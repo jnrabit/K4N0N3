@@ -1,6 +1,7 @@
 """LayerManager with pinned-memory master copies — upload=copy, offload=drop."""
 from __future__ import annotations
 
+import inspect
 import time
 from collections import OrderedDict
 from dataclasses import dataclass
@@ -121,6 +122,10 @@ class LayerManager:
     #: nie gedroppt/hochgeladen und bleiben permanent auf der GPU.
     _skip_trainable: bool = False
 
+    #: Namensmuster fuer MTP/Draft-Head-Module (Qwen3, DeepSeek-V3 MTP,
+    #: blk.*.nextn). Case-insensitiv auf den vollen Modulpfad gematcht.
+    _MTP_NAME_PATTERNS: tuple[str, ...] = ("mtp", "draft_head", "nextn", "next_n")
+
     def __init__(
         self,
         model: torch.nn.Module,
@@ -132,17 +137,33 @@ class LayerManager:
         pin_ram_fraction: float = 0.7,
         quantize_transfer: bool | str = False,
         int4_group_size: int = 64,
+        use_mtp: bool = False,
+        pinned_layers: list[int | str] | None = None,
     ):
         self.model = model
         self._int4_group_size = int4_group_size
         self.prefetch_depth = max(1, prefetch_depth)
         self.verbose = verbose
+        self.use_mtp = use_mtp
         self.memory = MemoryManager(vram_budget_mb)
 
         self._layers: OrderedDict[str, torch.nn.Module] = OrderedDict()
         self._layer_list: list[str] = []
         self._layer_info: dict[str, LayerInfo] = {}
+        # MTP/Draft-Head-Module — Phase 1 nur gemappt, Phase 2 im Dual-Pass ausgefuehrt.
+        self._mtp_layers: OrderedDict[str, torch.nn.Module] = OrderedDict()
+        self._mtp_layer_list: list[str] = []
+        # Zuordnung Standard-Layer -> zugehoerige MTP-Module (Namen).
+        self._layer_to_mtp: dict[str, list[str]] = {}
+        # Draft-Tiefe pro MTP-Modul (1-basiert, fuer position_ids-Shift).
+        self._mtp_depth: dict[str, int] = {}
+        # Buffer fuer MTP/Draft-Outputs: mtp_name -> Liste der Outputs pro Durchlauf.
+        self._mtp_buffer: dict[str, list[torch.Tensor]] = {}
+        # Forward-Kontext (input_ids/attention_mask/position_ids) aus dem
+        # Wurzel-Pre-Hook, damit _run_mtp_pass reale MTP-Signaturen bedienen kann.
+        self._forward_ctx: dict[str, torch.Tensor] = {}
         self._hook_handles: list[torch.utils.hooks.RemovableHandle] = []
+        self._root_hook_handle: torch.utils.hooks.RemovableHandle | None = None
         self._prepared = False
 
         self._cuda_available = torch.cuda.is_available()
@@ -177,6 +198,8 @@ class LayerManager:
         self._layer_gpu_bytes: dict[str, int] = {}
 
         self._discover_layers(layer_prefix)
+        self.pinned_layer_indices = self._normalize_pinned_layers(pinned_layers)
+        self._pinned_names = {self._layer_list[i] for i in self.pinned_layer_indices}
         self._measure_layer_sizes()
         if self._cuda_available:
             self._build_master_copies()
@@ -203,6 +226,139 @@ class LayerManager:
             self._layer_info[name] = LayerInfo()
         if self.verbose:
             print(f"[K4N0N3] Discovered {len(self._layers)} layers at '{prefix}'")
+        if self.use_mtp:
+            self._discover_mtp_layers()
+            self._associate_mtp_layers()
+
+    def _discover_mtp_layers(self) -> None:
+        """MTP/Draft-Head-Module namensbasiert erkennen und separat mappen.
+
+        Phase 1 registriert sie nur im Mapping (keine Hooks, kein Prefetch/
+        Offload). Gedeckt sind drei Faelle:
+          - Leaf-Module mit MTP-Namen und eigenen Tensoren
+            (model.layers.0.mtp, model.blk.0.nextn, model.draft_heads.0),
+          - Container (ModuleList/ModuleDict) mit MTP-Namen → direkte Kinder,
+          - komplexe MTP-Module ohne eigene Tensoren (z. B. model.nextn mit
+            Submodulen enorm/hnorm/...) → als Ganzes.
+        Submodule eines bereits registrierten MTP-Moduls werden uebersprungen,
+        damit die internen Linear-/Norm-Layer nicht als eigene Draft-Heads
+        auftauchen. Standard-Layer bleiben unberuehrt.
+        """
+        skip: set[str] = set()
+        for name, mod in self.model.named_modules():
+            if any(name == p or name.startswith(p + ".") for p in skip):
+                continue
+            if not self._is_mtp_module(name):
+                continue
+            if _has_own_tensors(mod):
+                self._add_mtp_layer(name, mod)
+            elif isinstance(mod, (torch.nn.ModuleList, torch.nn.ModuleDict)):
+                for child_name, child in mod.named_children():
+                    full = f"{name}.{child_name}" if name else child_name
+                    self._add_mtp_layer(full, child)
+                    skip.add(full)
+                skip.add(name)
+            else:
+                # Komplexes MTP-Modul (eigene Struktur, keine Blatt-Tensoren).
+                self._add_mtp_layer(name, mod)
+                skip.add(name)
+        if self.verbose:
+            print(f"[K4N0N3] Discovered {len(self._mtp_layers)} MTP/draft module(s)")
+
+    @classmethod
+    def _is_mtp_module(cls, name: str) -> bool:
+        low = name.lower()
+        return any(pattern in low for pattern in cls._MTP_NAME_PATTERNS)
+
+    def _add_mtp_layer(self, name: str, mod: torch.nn.Module) -> None:
+        if name in self._mtp_layers:
+            return
+        self._mtp_layers[name] = mod
+        self._mtp_layer_list.append(name)
+
+    def _normalize_pinned_layers(self, pinned: list[int | str] | None) -> set[int]:
+        """Normalisiert pinned_layers zu einem Set gueltiger Layer-Indizes.
+
+        int -> Index (negativ: n + i). str -> reine Ziffer als Index, sonst
+        exakter _layer_list-Name, sonst Suffix-Match (letztes Segment).
+        """
+        if not pinned:
+            return set()
+        n = len(self._layer_list)
+        indices: set[int] = set()
+        for entry in pinned:
+            idx = self._resolve_pinned_index(entry, n)
+            if not (0 <= idx < n):
+                raise ValueError(
+                    f"pinned_layers: Index {idx} ausserhalb von [0, {n}). "
+                    f"Eintrag: {entry!r}."
+                )
+            indices.add(idx)
+        return indices
+
+    def _resolve_pinned_index(self, entry: int | str, n: int) -> int:
+        if isinstance(entry, bool):
+            raise ValueError(f"pinned_layers: bool nicht erlaubt: {entry!r}.")
+        if isinstance(entry, int):
+            return entry if entry >= 0 else n + entry
+        s = entry
+        if s.lstrip("-").isdigit():
+            i = int(s)
+            return i if i >= 0 else n + i
+        if s in self._layer_list:
+            return self._layer_list.index(s)
+        for idx, name in enumerate(self._layer_list):
+            if name.rsplit(".", 1)[-1] == s:
+                return idx
+        raise ValueError(
+            f"pinned_layers: {entry!r} ist weder Index noch Layer-Name. "
+            f"Verfuegbare Layer: {self._layer_list}."
+        )
+
+    def _associate_mtp_layers(self) -> None:
+        """Ordnet jedes MTP-Modul einem Standard-Layer zu (layer -> [mtp...]).
+
+        Heuristik in Reihenfolge:
+          1. MTP-Modul liegt INNERHALB eines Standard-Layers
+             (model.layers.0.mtp -> model.layers.0).
+          2. Sonst: Index aus dem MTP-Namen (model.mtp_layers.0, blk.0.nextn)
+             -> Standard-Layer mit gleichem Index.
+          3. Sonst (z. B. model.nextn ohne Index) -> letzter Standard-Layer.
+        Zusaetzlich wird die Draft-Tiefe (1-basiert) je MTP-Modul bestimmt:
+        letzter numerischer Pfad-Index + 1, sonst 1.
+        """
+        self._layer_to_mtp = {name: [] for name in self._layer_list}
+        if not self._mtp_layer_list:
+            return
+        by_index: dict[int, str] = {}
+        for name in self._layer_list:
+            tail = name.rsplit(".", 1)[-1]
+            if tail.isdigit():
+                by_index[int(tail)] = name
+        last_layer = self._layer_list[-1]
+
+        for mtp_name in self._mtp_layer_list:
+            target: str | None = None
+            for ln in self._layer_list:
+                if mtp_name == ln or mtp_name.startswith(ln + "."):
+                    target = ln
+                    break
+            if target is None:
+                for token in mtp_name.split("."):
+                    if token.isdigit() and int(token) in by_index:
+                        target = by_index[int(token)]
+                        break
+            if target is None:
+                target = last_layer
+            self._layer_to_mtp[target].append(mtp_name)
+            self._mtp_depth[mtp_name] = self._depth_from_name(mtp_name)
+
+    @staticmethod
+    def _depth_from_name(mtp_name: str) -> int:
+        for token in reversed(mtp_name.split(".")):
+            if token.isdigit():
+                return int(token) + 1
+        return 1
 
     @staticmethod
     def _guess_layer_prefix(modules: dict[str, torch.nn.Module]) -> str | None:
@@ -394,6 +550,33 @@ class LayerManager:
             pre = module.register_forward_pre_hook(self._make_pre_hook(name))
             post = module.register_forward_hook(self._make_post_hook(name))
             self._hook_handles.extend([pre, post])
+        if self.use_mtp:
+            try:
+                self._root_hook_handle = self.model.register_forward_pre_hook(
+                    self._make_root_pre_hook(), with_kwargs=True)
+            except TypeError:
+                # torch < 2.0: kein with_kwargs — nur input_ids via args[0].
+                self._root_hook_handle = self.model.register_forward_pre_hook(
+                    self._make_root_pre_hook())
+
+    def _make_root_pre_hook(self) -> Callable:
+        """Sammelt input_ids/attention_mask/position_ids des aktuellen Forwards.
+
+        Der Layer-Post-Hook sieht nur hidden_states; echte MTP-Heads brauchen
+        aber die Input-Ebene. Der Wurzel-Pre-Hook speichert sie in _forward_ctx.
+        """
+        def hook(module: torch.nn.Module, args, kwargs=None):
+            ctx: dict[str, torch.Tensor] = {}
+            if kwargs is not None and "input_ids" in kwargs:
+                ctx["input_ids"] = kwargs["input_ids"]
+            elif args and torch.is_tensor(args[0]):
+                ctx["input_ids"] = args[0]
+            if kwargs is not None:
+                for key in ("attention_mask", "position_ids"):
+                    if key in kwargs and kwargs[key] is not None:
+                        ctx[key] = kwargs[key]
+            self._forward_ctx = ctx
+        return hook
 
     def _make_pre_hook(self, name: str) -> Callable:
         def hook(module: torch.nn.Module, args):
@@ -402,8 +585,13 @@ class LayerManager:
             if self._layer_list and name == self._layer_list[0]:
                 global _layer0_fire_count
                 _layer0_fire_count += 1
+                # Neuer Forward-Durchlauf: MTP-Buffer zuruecksetzen, damit
+                # zwischen Generation-Steps keine Alt-Referenzen kumulieren.
+                if self.use_mtp:
+                    self._mtp_buffer.clear()
             t0 = time.perf_counter()
-            self.memory.mark_on_gpu(name, module, self._layer_gpu_bytes.get(name))
+            if name not in self._pinned_names:
+                self.memory.mark_on_gpu(name, module, self._layer_gpu_bytes.get(name))
             self._ensure_on_gpu(name)
             dt = (time.perf_counter() - t0) * 1000
             self._layer_info[name].transfer_time_ms = dt
@@ -414,6 +602,10 @@ class LayerManager:
 
     def _make_post_hook(self, name: str) -> Callable:
         def hook(module: torch.nn.Module, args, output):
+            # Dual-Pass: zugehoerige MTP/Draft-Module auf dem Layer-Output
+            # ausfuehren, SOLANGE der Layer noch geladen ist (fail-fast).
+            if self.use_mtp and self._layer_to_mtp.get(name):
+                self._run_mtp_pass(name, output)
             idx = self._layer_idx[name]
             n = len(self._layer_list)
             # Wrap-around prefetch for autoregressive generation
@@ -428,6 +620,72 @@ class LayerManager:
             if self.verbose:
                 print(f"  [post] {name} | {_state_summary(self._layer_info)}")
         return hook
+
+    def _run_mtp_pass(self, layer_name: str, hidden_states: torch.Tensor) -> None:
+        """Fuehrt die dem Layer zugeordneten MTP-Module aus und buffert die Outputs.
+
+        Inspiziert die forward-Signatur dynamisch: erwartet das Modul nur
+        hidden_states, wird der direkte Ein-Argument-Aufruf genutzt (Fallback).
+        Verlangt es position_ids/input_ids/attention_mask, werden sie aus
+        _forward_ctx ergaenzt, position_ids um die Draft-Tiefe geshiftet und
+        auf das Device der hidden_states gelegt.
+        """
+        for mtp_name in self._layer_to_mtp.get(layer_name, []):
+            mod = self._mtp_layers[mtp_name]
+            depth = self._mtp_depth.get(mtp_name, 1)
+            kwargs = self._build_mtp_kwargs(mod, hidden_states, depth)
+            with torch.no_grad():
+                if kwargs:
+                    out = mod(hidden_states, **kwargs)
+                else:
+                    out = mod(hidden_states)
+            self._mtp_buffer.setdefault(mtp_name, []).append(out)
+
+    def _build_mtp_kwargs(
+        self, mod: torch.nn.Module, hidden_states: torch.Tensor, depth: int
+    ) -> dict[str, torch.Tensor] | None:
+        """Baut kwargs fuer einen MTP-Aufruf; None bedeutet single-arg-Aufruf."""
+        names = self._forward_param_names(mod)
+        if names is None or len(names) <= 1:
+            return None
+        ctx = self._forward_ctx
+        kwargs: dict[str, torch.Tensor] = {}
+        if "position_ids" in names:
+            kwargs["position_ids"] = self._shifted_position_ids(hidden_states, depth)
+        if "input_ids" in names and "input_ids" in ctx:
+            kwargs["input_ids"] = ctx["input_ids"].to(hidden_states.device)
+        if "attention_mask" in names and ctx.get("attention_mask") is not None:
+            kwargs["attention_mask"] = ctx["attention_mask"].to(hidden_states.device)
+        return kwargs or None
+
+    @staticmethod
+    def _forward_param_names(mod: torch.nn.Module) -> list[str] | None:
+        try:
+            sig = inspect.signature(mod.forward)
+        except (ValueError, TypeError):
+            return None
+        names = [
+            name for name, p in sig.parameters.items()
+            if p.kind in (inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                          inspect.Parameter.KEYWORD_ONLY)
+            and name != "self"
+        ]
+        return names
+
+    def _shifted_position_ids(self, hidden_states: torch.Tensor, depth: int) -> torch.Tensor:
+        """position_ids fuer Draft-Tiefe ``depth`` (Basis + depth).
+
+        Basis aus _forward_ctx, sonst automatisch arange(seq_len) auf dem
+        Device/Dtype der hidden_states.
+        """
+        dev = hidden_states.device
+        seq_len = hidden_states.shape[1]
+        base = self._forward_ctx.get("position_ids")
+        if base is None:
+            base = torch.arange(seq_len, device=dev, dtype=torch.long).unsqueeze(0)
+        else:
+            base = base.to(device=dev)
+        return base + depth
 
     # -- A2: upload = copy from pinned master -------------------------------
 
@@ -456,6 +714,8 @@ class LayerManager:
     def _prefetch_async(self, name: str) -> None:
         if not self._cuda_available:
             return
+        if name in self._pinned_names:
+            return  # gepinnt: bleibt dauerhaft auf GPU, nie prefetchen/buchen
         info = self._layer_info[name]
         if info.state != LayerState.ON_CPU:
             return
@@ -474,6 +734,8 @@ class LayerManager:
     # -- A3: offload = drop GPU tensor, point back to pinned master ---------
 
     def _offload(self, name: str) -> None:
+        if name in self._pinned_names:
+            return  # gepinnt: bleibt dauerhaft auf GPU (resident)
         info = self._layer_info[name]
         if info.state == LayerState.ON_CPU:
             return
@@ -511,13 +773,17 @@ class LayerManager:
 
         if self._cuda_available:
             self._move_fixed_to_gpu()
+            # Gepinnte Layer vorgluehen: dauerhaft auf GPU, ohne LRU-Buchung.
+            for name in self._pinned_names:
+                self._ensure_on_gpu(name)
 
         limit = min(self.prefetch_depth + 1, len(self._layer_list))
         for i in range(limit):
             name = self._layer_list[i]
             if i == 0:
                 self._ensure_on_gpu(name)
-                self.memory.mark_on_gpu(name, self._layers[name], self._layer_gpu_bytes.get(name))
+                if name not in self._pinned_names:
+                    self.memory.mark_on_gpu(name, self._layers[name], self._layer_gpu_bytes.get(name))
             else:
                 self._prefetch_async(name)
 
@@ -554,6 +820,37 @@ class LayerManager:
             self._layer_idx_cache = {n: i for i, n in enumerate(self._layer_list)}
         return self._layer_idx_cache
 
+    # -- MTP/Layer-Mapping ---------------------------------------------------
+
+    @property
+    def standard_layers(self) -> list[torch.nn.Module]:
+        """Die Standard-Transformer-Blöcke (Haupt-Layer) als Modul-Liste."""
+        return list(self._layers.values())
+
+    @property
+    def mtp_layers(self) -> list[torch.nn.Module]:
+        """Erkannte MTP/Draft-Head-Module (leer, wenn keine gefunden)."""
+        return list(self._mtp_layers.values())
+
+    @property
+    def layer_map(self) -> dict[str, list[torch.nn.Module]]:
+        """Strukturiertes Layer-Mapping: standard_layers + mtp_layers."""
+        return {
+            "standard_layers": self.standard_layers,
+            "mtp_layers": self.mtp_layers,
+        }
+
+    def get_mtp_buffer(self) -> dict[str, list[torch.Tensor]]:
+        """Gepufferte MTP/Draft-Outputs des letzten Forward-Durchlaufs.
+
+        Nicht destruktiv: Key = MTP-Modulname, Value = Liste der Outputs.
+        """
+        return self._mtp_buffer
+
+    def clear_mtp_buffer(self) -> None:
+        """Leert den MTP-Buffer (gibt Referenzen fuer den GC frei)."""
+        self._mtp_buffer.clear()
+
     def stats(self) -> dict:
         return {
             name: {
@@ -568,6 +865,9 @@ class LayerManager:
         for h in self._hook_handles:
             h.remove()
         self._hook_handles.clear()
+        if self._root_hook_handle is not None:
+            self._root_hook_handle.remove()
+            self._root_hook_handle = None
 
 
 # -- A2/M2 helpers: per-parameter upload/drop --------------------------------

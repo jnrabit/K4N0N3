@@ -2,6 +2,7 @@ from .cache import LRUCache
 from .hooks import LayerManager
 from .huggingface import ZeroFlushModel
 from .memory import MemoryManager
+from .mtp_engine import MTPVerificationEngine
 from .parallel import PipelineParallel
 from .tensor import ManagedTensor
 from .training import TrainingManager
@@ -11,6 +12,7 @@ __all__ = [
     "ZeroFlushModel",
     "LayerManager",
     "TrainingManager",
+    "MTPVerificationEngine",
     "PipelineParallel",
     "MemoryManager",
     "ManagedTensor",

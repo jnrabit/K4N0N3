@@ -1,7 +1,8 @@
 # K4N0N3: Zero-Flush Memory Management for LLMs
 
 Transparent **layer-level CPU/GPU offloading** for Hugging Face models. Run large
-LLMs on limited VRAM — no manual `.to("cuda")` calls needed.
+LLMs on limited VRAM — no manual `.to("cuda")` calls needed. Includes an
+experimental **MTP (Multi-Token Prediction) / self-speculative decoding** stack.
 
 ## How It Works
 
@@ -22,8 +23,16 @@ Layer 2         ░░░░████████
 - **Transparent offloading** — wrap any Hugging Face model, no code changes
 - **Async prefetch** — overlaps CPU→GPU transfers with layer execution
 - **VRAM budgeting** — specify a memory limit, older layers get evicted automatically
+- **Layer pinning** — keep designated layers (e.g. `[0, -1]`) permanently resident
+  in VRAM, immune to LRU eviction
 - **Auto-discovery** — detects transformer layer structure for Llama, Mistral,
   GPT-2, Falcon, BLOOM, Gemma, Phi, Qwen2, and more
+- **MTP draft-head discovery & dual-pass hooks** — recognizes `mtp.*` / `draft_head`
+  / `nextn` modules and executes them alongside their host layer
+- **MTP verification engine** — greedy-verlustfreies Multi-Token-Prediction
+  decoding with optional multi-branch tree-drafting (`num_branches`)
+- **MTP weight reconstruction** — reads MTP/draft weights that HF loaders ignore
+  (`mtp.*`, `model.layers.61+`) and re-attaches them as functional submodules
 
 ## Installation
 
@@ -40,6 +49,7 @@ model = ZeroFlushModel(
     "mistralai/Mistral-7B-Instruct-v0.1",
     vram_budget_mb=4096,
     prefetch_depth=2,
+    pinned_layers=[0, -1],   # Layer 0 und letzter Layer bleiben resident
 )
 
 print(model.generate("Explain quantum computing in simple terms.", max_length=100))
@@ -56,6 +66,11 @@ Main entry point. Wraps a Hugging Face model.
 | `vram_budget_mb` | `4096` | VRAM budget in MB |
 | `prefetch_depth` | `1` | Number of layers to prefetch ahead |
 | `device` | `"cuda"` | Target compute device |
+| `quantize_transfer` | `False` | `False` / `True`/`"int8"` / `"int4"` weight-only transfer |
+| `pin_ram_fraction` | `0.7` | Fraction of available RAM used for pinned masters |
+| `pinned_layers` | `None` | `[int\|str]` layer indices/names kept resident in VRAM (negative = from end) |
+| `use_mtp` | `False` | Enable MTP/self-speculative decoding |
+| `mtp_num_branches` | `1` | Multi-branch tree-drafting width (1 = single-path) |
 
 ### `LayerManager`
 Low-level API for manual hook management on any `nn.Module`.
@@ -63,10 +78,27 @@ Low-level API for manual hook management on any `nn.Module`.
 ```python
 from k4n0n3 import LayerManager
 
-manager = LayerManager(model, layer_prefix="model.layers", vram_budget_mb=2048)
+manager = LayerManager(model, layer_prefix="model.layers", vram_budget_mb=2048,
+                       pinned_layers=[0, -1])
 manager.prepare()
 output = model(input)
 manager.remove_hooks()
+```
+
+### `MTPVerificationEngine`
+Standalone greedy-verlustfreie MTP-Verifikation (model-agnostisch, CPU-testbar).
+
+```python
+from k4n0n3 import MTPVerificationEngine
+engine = MTPVerificationEngine(num_branches=2)   # 1 = single-path, >1 = tree-drafting
+```
+
+### `reconstruct_and_attach_mtp`
+Reads ignored MTP weights from a checkpoint and re-attaches them.
+
+```python
+from k4n0n3.mtp_loader import reconstruct_and_attach_mtp
+reconstruct_and_attach_mtp(model, "path/to/model", dtype=torch.float16)
 ```
 
 ### `MemoryManager`
@@ -75,18 +107,36 @@ Tracks VRAM usage and handles LRU eviction.
 ### `ManagedTensor`
 Simple tensor wrapper with device tracking (no `torch.Tensor` subclass).
 
+## Benchmark
+
+```bash
+# Synthetisch (CPU, kein Netzwerk/GPU)
+python bench/bench_mtp_k4n0n3.py --synthetic
+# Echtes Modell (GPU/ROCm)
+python bench/bench_mtp_k4n0n3.py --model Qwen/Qwen2.5-3B --json
+```
+
 ## Testing
 
 ```bash
-python -m pytest tests/ -v
+python -m pytest tests/ -v          # 105 Tests (inkl. Integrationstests)
+python -m pytest tests/ -m "not integration"   # ohne echte-Modell-Tests
 ```
 
 ## Requirements
 
 - Python 3.9+
-- PyTorch 2.0+
+- PyTorch 2.0+ (ROCm build for AMD GPUs)
 - Hugging Face `transformers` 4.30+
 - CUDA-compatible GPU (NVIDIA) or ROCm (AMD)
+
+## MTP Status (Experimental)
+
+The MTP stack is functionally complete and greedy-lossless, but **does not yet
+deliver a real speedup**: verification uses recompute (no KV-cache), and no
+small MTP-capable HF model exists (Qwen3-Next ≈ 80B, DeepSeek-V3 = 671B). Weight
+reconstruction is generic (linear approximation), not architecture-faithful.
+Use it for research/validation; `use_mtp=False` is the production default.
 
 ## License
 

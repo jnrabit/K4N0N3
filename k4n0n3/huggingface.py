@@ -6,6 +6,7 @@ import torch
 from transformers import AutoModel, AutoModelForCausalLM, AutoTokenizer
 
 from .hooks import LayerManager
+from .mtp_engine import MTPVerificationEngine
 from .utils import auto_vram_budget, estimate_model_size
 
 
@@ -48,12 +49,18 @@ class ZeroFlushModel:
         pin_ram_fraction: float = 0.7,
         quantize_transfer: bool | str = False,  # False | True/"int8" | "int4"
         int4_group_size: int = 64,
+        use_mtp: bool = False,
+        pinned_layers: list[int | str] | None = None,
+        mtp_num_branches: int = 1,
         **hf_kwargs: Any,
     ):
         self.model_name = model_name
         self.prefetch_depth = prefetch_depth
         self._device = device
         self.verbose = verbose
+        self.use_mtp = use_mtp
+        self.pinned_layers = pinned_layers
+        self.mtp_num_branches = mtp_num_branches
 
         if torch_dtype is None and "cuda" in device:
             torch_dtype = torch.float16
@@ -76,6 +83,13 @@ class ZeroFlushModel:
             self.model.to("cpu")
 
         self.model.eval()
+
+        # MTP-Gewicht-Rekonstruktion: HF ignoriert mtp.*/model.layers.N+.
+        # Hier die Draft-Heads aus dem Checkpoint lesen und anhaengen, BEVOR
+        # der LayerManager die Discovery laufen laesst.
+        if use_mtp:
+            from .mtp_loader import reconstruct_and_attach_mtp
+            reconstruct_and_attach_mtp(self.model, model_name, dtype=torch_dtype)
 
         model_size_mb = estimate_model_size(self.model)
         if vram_budget_mb is None:
@@ -104,6 +118,8 @@ class ZeroFlushModel:
             pin_ram_fraction=pin_ram_fraction,
             quantize_transfer=quantize_transfer,
             int4_group_size=int4_group_size,
+            use_mtp=use_mtp,
+            pinned_layers=pinned_layers,
         )
 
     def _guess_layer_prefix(self) -> str:
@@ -117,6 +133,8 @@ class ZeroFlushModel:
                  draft_model_name: str = "Qwen/Qwen2.5-0.5B",
                  num_assistant_tokens: int | None = None,
                  **gen_kwargs: Any) -> str:
+        if self.use_mtp:
+            return self._generate_mtp(prompt, **gen_kwargs)
         if not hasattr(self.model, "generate"):
             raise AttributeError(
                 f"Model '{self.model_name}' ({type(self.model).__name__}) "
@@ -144,6 +162,58 @@ class ZeroFlushModel:
         result = self.tokenizer.decode(output_ids[0], skip_special_tokens=True)
         self.layer_manager.memory.set_reserve(0)
         return result
+
+    def _generate_mtp(self, prompt: str, **gen_kwargs: Any) -> str:
+        """MTP-speculativer Decode-Loop (use_mtp=True).
+
+        Verifiziert die im LayerManager gebufferten MTP-Drafts gegen die echten
+        Logits. Greedy (temperature=0.0) ist verlustfrei und liefert exakt den
+        Standard-Greedy-Output. Nutzt Recompute (kein KV-Cache), daher gibt es
+        keinen geteilten Cache-Zustand zu korrumpieren.
+        """
+        self.prepare()
+        inputs = self.tokenizer(prompt, return_tensors="pt")
+        if "cuda" in self._device and torch.cuda.is_available():
+            inputs = {k: v.to(self._device) for k, v in inputs.items()}
+        input_ids = inputs["input_ids"]
+
+        head = self._resolve_lm_head()
+        engine = MTPVerificationEngine(num_branches=self.mtp_num_branches)
+        self._mtp_engine = engine
+        max_new_tokens = gen_kwargs.get("max_new_tokens", gen_kwargs.get("max_length", 2048))
+        eos = getattr(self.tokenizer, "eos_token_id", None)
+        temperature = float(gen_kwargs.get("temperature", 0.0))
+
+        def forward_fn(ids: torch.Tensor):
+            with torch.no_grad():
+                logits = self.model(input_ids=ids).logits
+            draft_logits = engine.extract_draft_logits(
+                self.layer_manager.get_mtp_buffer(), head)
+            self.layer_manager.clear_mtp_buffer()
+            return logits, draft_logits
+
+        with torch.no_grad():
+            new_ids = engine.generate(forward_fn, input_ids, max_new_tokens,
+                                      eos_token_id=eos, temperature=temperature)
+        self.layer_manager.memory.set_reserve(0)
+
+        self._last_new_token_ids = new_ids
+        self._mtp_stats = engine.last_run_stats
+        new_tensor = torch.tensor([new_ids], dtype=input_ids.dtype, device=input_ids.device)
+        full_ids = torch.cat([input_ids, new_tensor], dim=1)
+        return self.tokenizer.decode(full_ids[0], skip_special_tokens=True)
+
+    def _resolve_lm_head(self) -> torch.nn.Module:
+        """Findet den unembedding/lm_head des Modells (fuer MTP-Draft-Logits)."""
+        for attr in ("lm_head", "embed_out", "head"):
+            m = getattr(self.model, attr, None)
+            if isinstance(m, torch.nn.Module):
+                return m
+        raise AttributeError(
+            f"use_mtp=True braucht einen unembedding/lm_head am Modell "
+            f"'{self.model_name}'. Keines der Attribute lm_head/embed_out/head "
+            f"gefunden."
+        )
 
     def _get_draft(self, name: str):
         """Lazy-lädt das Draft-Modell für spekulatives Decoding: VOLL GPU-
@@ -210,6 +280,12 @@ class ZeroFlushModel:
 
     def offload_all(self) -> None:
         self.layer_manager.offload_all()
+
+    def get_mtp_buffer(self):
+        return self.layer_manager.get_mtp_buffer()
+
+    def clear_mtp_buffer(self) -> None:
+        self.layer_manager.clear_mtp_buffer()
 
     def report(self) -> str:
         return self.layer_manager.memory.report()
