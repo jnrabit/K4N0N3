@@ -6,3 +6,6 @@ __pycache__/
 # Wegwerf-Adapter aus Smoke-Tests (echte Laeufe werden committed)
 bench/checkpoints/*_ckpttest.pt
 bench/checkpoints/*_smoke*.pt
+
+# Trainierte Mini-MTP-Checkpoints (scripts/train_mini_mtp.py)
+checkpoints/

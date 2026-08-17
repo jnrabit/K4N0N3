@@ -82,12 +82,15 @@ def reconstruct_and_attach_mtp(
     for key, tensor in tensors.items():
         grouped.setdefault(_mtp_module_index(key, num_layers), {})[key] = tensor
 
-    heads: list[nn.Module] = []
+    heads: dict[int, nn.Module] = {}
     for idx in sorted(grouped.keys()):
-        heads.append(_build_draft_head(grouped[idx], dtype=dtype, device=device))
+        heads[idx] = _build_draft_head(grouped[idx], dtype=dtype, device=device)
 
-    model.mtp_layers = nn.ModuleList(heads)
-    return list(model.mtp_layers)
+    # ModuleDict statt ModuleList: der Modul-Index (aus dem Key) bleibt im
+    # Namen erhalten, damit _associate_mtp_layers das MTP-Modul dem richtigen
+    # Standard-Layer zuordnen kann (z. B. mtp.23 -> model.layers.23).
+    model.mtp_layers = nn.ModuleDict({str(idx): head for idx, head in heads.items()})
+    return list(model.mtp_layers.values())
 
 
 # -- helpers -----------------------------------------------------------------

@@ -52,6 +52,7 @@ class ZeroFlushModel:
         use_mtp: bool = False,
         pinned_layers: list[int | str] | None = None,
         mtp_num_branches: int = 1,
+        mtp_checkpoint: str | None = None,
         **hf_kwargs: Any,
     ):
         self.model_name = model_name
@@ -61,6 +62,7 @@ class ZeroFlushModel:
         self.use_mtp = use_mtp
         self.pinned_layers = pinned_layers
         self.mtp_num_branches = mtp_num_branches
+        self.mtp_checkpoint = mtp_checkpoint
 
         if torch_dtype is None and "cuda" in device:
             torch_dtype = torch.float16
@@ -89,7 +91,8 @@ class ZeroFlushModel:
         # der LayerManager die Discovery laufen laesst.
         if use_mtp:
             from .mtp_loader import reconstruct_and_attach_mtp
-            reconstruct_and_attach_mtp(self.model, model_name, dtype=torch_dtype)
+            reconstruct_and_attach_mtp(self.model, mtp_checkpoint or model_name,
+                                       dtype=torch_dtype)
 
         model_size_mb = estimate_model_size(self.model)
         if vram_budget_mb is None:

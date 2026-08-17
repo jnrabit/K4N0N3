@@ -51,9 +51,9 @@ def test_reconstruct_from_safetensors(tmp_path):
     def head_vals(head):
         return {float(l.weight.flatten()[0].item()) for l in head.layers}
 
-    assert head_vals(model.mtp_layers[0]) == {1.0, 3.0}
-    assert head_vals(model.mtp_layers[1]) == {4.0, 5.0}
-    biases = [l for l in model.mtp_layers[0].layers if l.bias is not None]
+    assert head_vals(model.mtp_layers["0"]) == {1.0, 3.0}
+    assert head_vals(model.mtp_layers["1"]) == {4.0, 5.0}
+    biases = [l for l in model.mtp_layers["0"].layers if l.bias is not None]
     assert len(biases) == 1 and float(biases[0].bias[0].item()) == 2.0
 
 
@@ -110,5 +110,5 @@ def test_layer_index_based_detection(tmp_path):
     model.config = type("Cfg", (), {"num_hidden_layers": 2})()
     heads = reconstruct_and_attach_mtp(model, str(tmp_path))
     assert heads is not None and len(heads) == 1
-    assert len(model.mtp_layers[0].layers) == 1
-    assert torch.equal(model.mtp_layers[0].layers[0].weight, state["model.layers.2.weight"])
+    assert len(model.mtp_layers["0"].layers) == 1
+    assert torch.equal(model.mtp_layers["0"].layers[0].weight, state["model.layers.2.weight"])
