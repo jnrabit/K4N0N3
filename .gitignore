@@ -9,3 +9,6 @@ bench/checkpoints/*_smoke*.pt
 
 # Trainierte Mini-MTP-Checkpoints (scripts/train_mini_mtp.py)
 checkpoints/
+
+# Benchmark-Ergebnisse (Messprotokolle, reproduzierbar via bench/*.py)
+bench/results/*.json

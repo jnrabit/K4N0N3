@@ -55,6 +55,38 @@ model = ZeroFlushModel(
 print(model.generate("Explain quantum computing in simple terms.", max_length=100))
 ```
 
+### MTP / Self-Speculative Decoding
+
+```python
+from k4n0n3 import ZeroFlushModel
+
+# use_mtp=True aktiviert die MTP-Engine; mtp_checkpoint lädt separat trainierte
+# Draft-Head-Gewichte (siehe Mini-MTP-Training unten).
+model = ZeroFlushModel(
+    "Qwen/Qwen2.5-0.5B",
+    vram_budget_mb=4096,
+    use_mtp=True,
+    mtp_checkpoint="checkpoints/qwen2.5-0.5b-mtp",
+    mtp_num_branches=2,            # 1 = single-path, >1 = tree-drafting
+)
+
+print(model.generate("1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20", max_new_tokens=32))
+print(model._mtp_stats)            # {"steps": …, "accepted_per_step": …}
+```
+
+### Mini-MTP Micro-Training (Proof-of-Concept)
+
+Trainiert einen leichten Draft-Head (2-Layer-MLP) auf dem letzten Layer-Output
+eines eingefrorenen Basis-Modells und validiert die MTP-Akzeptanz end-to-end:
+
+```bash
+python scripts/train_mini_mtp.py --steps 100
+```
+
+Ergebnis auf AMD RX 7600 (ROCm): `accepted_per_step = 1.455` (> 1.0), d. h. die
+Draft-Heads erzeugen messbare Multi-Token-Gewinne. Ausgabe:
+`checkpoints/qwen2.5-0.5b-mtp/model.safetensors` (Keys `mtp.23.*`).
+
 ## API
 
 ### `ZeroFlushModel`
@@ -132,11 +164,14 @@ python -m pytest tests/ -m "not integration"   # ohne echte-Modell-Tests
 
 ## MTP Status (Experimental)
 
-The MTP stack is functionally complete and greedy-lossless, but **does not yet
-deliver a real speedup**: verification uses recompute (no KV-cache), and no
-small MTP-capable HF model exists (Qwen3-Next ≈ 80B, DeepSeek-V3 = 671B). Weight
-reconstruction is generic (linear approximation), not architecture-faithful.
-Use it for research/validation; `use_mtp=False` is the production default.
+The MTP stack is functionally complete and greedy-lossless. The engine, tree-
+drafting, signature adaptation and weight reconstruction are verified by tests,
+and the Mini-MTP micro-training demonstrates real acceptance (`accepted_per_step
+= 1.455 > 1.0`). It does **not yet deliver a real speedup** end-to-end:
+verification uses recompute (no KV-cache), and no small MTP-capable HF model
+exists (Qwen3-Next ≈ 80B, DeepSeek-V3 = 671B). Weight reconstruction is generic
+(linear approximation), not architecture-faithful. Use it for research/validation;
+`use_mtp=False` is the production default.
 
 ## License
 

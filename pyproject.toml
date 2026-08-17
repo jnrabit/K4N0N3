@@ -14,6 +14,7 @@ dependencies = [
     "torch>=2.0.0",
     "transformers>=4.30.0",
     "psutil>=5.9.0",
+    "safetensors>=0.4",
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -34,8 +35,8 @@ accelerate = ["accelerate>=0.20"]
 dev = ["pytest", "pytest-cov"]
 
 [project.urls]
-Homepage = "https://github.com/opencode/K4N0N3"
-Repository = "https://github.com/opencode/K4N0N3.git"
+Homepage = "https://github.com/jnrabit/K4N0N3"
+Repository = "https://github.com/jnrabit/K4N0N3.git"
 
 [project.scripts]
 k4n0n3 = "k4n0n3.cli:main"
